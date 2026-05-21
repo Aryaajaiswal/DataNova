@@ -262,20 +262,6 @@ def get_theme_css(theme):
     #top-nav-wrapper .theme-btn:hover {{
         box-shadow: 0 0 12px var(--glow);
     }}
-    /* Theme toggle button positioned as navbar element */
-    .stButton > button[key="theme_toggle_nav"] {{
-        font-size: 1.05rem !important;
-        padding: 0.25rem 0.5rem !important;
-        border-radius: 12px !important;
-        border: 1px solid var(--card-border) !important;
-        background: var(--input-bg) !important;
-        min-width: unset !important;
-        width: auto !important;
-        box-shadow: none !important;
-        margin-top: -2.4rem !important;
-        margin-left: auto !important;
-        display: block !important;
-    }
     @keyframes gradient-shift {{
         0% {{ background-position: 0% center; }}
         50% {{ background-position: 100% center; }}
