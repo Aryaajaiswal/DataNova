@@ -787,7 +787,7 @@ def db_engine():
 
 # ── Sidebar ──
 with st.sidebar:
-    st.markdown('<p class="section-title" style="font-size:0.85rem;">🔌 Connection</p>')
+    st.markdown('<p class="section-title" style="font-size:0.85rem;">🔌 Connection</p>', unsafe_allow_html=True)
     db_url_input = st.text_input("Database URI", value=f"sqlite:///{DB_PATH}", key="db_url_input", label_visibility="collapsed")
     db_conn_side = DatabaseConnector(db_url_input)
     is_connected = db_conn_side.test_connection()
@@ -796,7 +796,7 @@ with st.sidebar:
     else:
         st.markdown('<div class="error-box">✗ Connection failed</div>', unsafe_allow_html=True)
 
-    st.markdown('<p class="section-title" style="font-size:0.85rem;">📂 Tables</p>')
+    st.markdown('<p class="section-title" style="font-size:0.85rem;">📂 Tables</p>', unsafe_allow_html=True)
     if is_connected:
         tables = db_conn_side.get_tables()
         user_tables = [t for t in tables if not t.startswith("_")]
@@ -815,7 +815,7 @@ with st.sidebar:
             placeholder="Revenue = price * quantity\nActive users = logged in within 30 days")
 
     if is_connected:
-        st.markdown('<p class="section-title" style="font-size:0.85rem;">💡 Questions</p>')
+        st.markdown('<p class="section-title" style="font-size:0.85rem;">💡 Questions</p>', unsafe_allow_html=True)
         if "cached_questions" not in st.session_state:
             st.session_state["cached_questions"] = {}
         if db_url_input not in st.session_state["cached_questions"]:
@@ -840,7 +840,7 @@ if active == "Chat":
 
     with chat_col:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown('<p class="section-title">💬 AI Chat</p>')
+        st.markdown('<p class="section-title">💬 AI Chat</p>', unsafe_allow_html=True)
         for i, msg in enumerate(st.session_state.messages):
             is_last = (i == len(st.session_state.messages) - 1)
             if is_last and msg.get("pending_execution"):
@@ -931,7 +931,7 @@ if active == "Chat":
 
     with result_col:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown('<p class="section-title">📊 Results</p>')
+        st.markdown('<p class="section-title">📊 Results</p>', unsafe_allow_html=True)
         if st.session_state.messages:
             last = st.session_state.messages[-1]
             if last["role"] == "assistant" and not last.get("pending_execution"):
@@ -968,7 +968,7 @@ if active == "Chat":
 # PAGE: DATA
 # ════════════════════════════════════════════════════
 elif active == "Data":
-    st.markdown('<p class="section-title">📁 Upload Data</p>')
+    st.markdown('<p class="section-title">📁 Upload Data</p>', unsafe_allow_html=True)
     with st.expander("🌐 Fetch from URL", expanded=False):
         url = st.text_input("URL to CSV/JSON/Excel", placeholder="https://example.com/data.csv", label_visibility="collapsed")
         if url:
@@ -1047,7 +1047,7 @@ elif active == "Data":
                 os.remove(temp_path)
 
     st.divider()
-    st.markdown('<p class="section-title" style="margin-top:0.5rem;">Your Tables</p>')
+    st.markdown('<p class="section-title" style="margin-top:0.5rem;">Your Tables</p>', unsafe_allow_html=True)
     dbc = DatabaseConnector(db_url_input)
     tbls = dbc.get_tables()
     ut = [t for t in tbls if not t.startswith("_")]
@@ -1105,7 +1105,7 @@ elif active == "Dashboard":
 
         active_filter = None
         if filter_cols:
-            st.markdown('<p class="section-title" style="margin-bottom:0;">🔍 Filters</p>')
+            st.markdown('<p class="section-title" style="margin-bottom:0;">🔍 Filters</p>', unsafe_allow_html=True)
             fcols = st.columns(min(len(filter_cols), 5))
             for fi, fc in enumerate(filter_cols[:5]):
                 with fcols[fi]:
@@ -1204,7 +1204,7 @@ elif active == "Dashboard":
 
         with sq:
             if dash.get("suggested_questions"):
-                st.markdown('<p class="section-title" style="font-size:0.9rem;">💡 Suggested Questions</p>')
+                st.markdown('<p class="section-title" style="font-size:0.9rem;">💡 Suggested Questions</p>', unsafe_allow_html=True)
                 for qi, q in enumerate(dash["suggested_questions"]):
                     if st.button(q, use_container_width=True, key=f"sq_{selected}_{qi}"):
                         st.session_state["prefill"] = q
