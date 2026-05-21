@@ -308,9 +308,6 @@ def get_theme_css(theme):
         color: var(--accent) !important;
         font-weight: 600;
     }}
-        box-shadow: 0 12px 40px var(--shadow), 0 0 20px var(--glow);
-        border-color: var(--accent);
-    }}
     .kpi-card::after {{
         content: '';
         position: absolute;
@@ -348,9 +345,10 @@ def get_theme_css(theme):
         -webkit-backdrop-filter: blur(12px);
         border: 1px solid var(--card-border);
         border-radius: 20px;
-        padding: 0.85rem 1rem;
+        padding: 0.65rem 0.85rem;
+        margin-bottom: 0.5rem;
         box-shadow: 0 4px 16px var(--shadow);
-        transition: all 0.25s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }}
     .chart-card:hover {{
         border-color: var(--accent);
@@ -1376,6 +1374,7 @@ with tab_dash:
         if dash.get("error"):
             st.markdown(f'<div class="error-box">⚠ {dash["error"]}</div>', unsafe_allow_html=True)
 
+        st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
         db_dash = get_cached_connector(db_url_input)
         table_name = dash.get("table_name", selected)
 
@@ -1404,6 +1403,8 @@ with tab_dash:
                     except Exception as e:
                         st.warning(f"Filter load error: {e}")
 
+        st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+
         # ── KPI Row ──
         if dash.get("kpis"):
             kpi_list = dash["kpis"]
@@ -1429,6 +1430,8 @@ with tab_dash:
                         icon=kpi.get("icon"),
                         fmt=kpi.get("format", "number")
                     )
+
+        st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
 
         # ── Main Chart + Data Quality side by side ──
         if dash.get("charts"):
@@ -1480,6 +1483,8 @@ with tab_dash:
                                     key=f"ds_{selected}_{row_start + ci}"
                                 )
                                 st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
 
         # ── Executive Summary + Suggested Qs ──
         ex, sq = st.columns([1.5, 1], gap="small")
