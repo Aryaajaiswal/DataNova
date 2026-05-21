@@ -58,7 +58,6 @@ DARK_VARS = {
     "glow": "rgba(139,92,246,0.40)",
 }
 
-@st.cache_data
 def get_theme_css(theme):
     v = DARK_VARS if theme == "dark" else LIGHT_VARS
     return f"""
@@ -1103,7 +1102,7 @@ if not has_data:
         st.markdown(f'''
         <div style="text-align:center;padding:1.5rem 1rem 0.5rem;">
             <div style="font-family:'Syne',sans-serif;font-size:2.8rem;font-weight:800;
-                        background:linear-gradient(135deg,{DARK_VARS["accent"]},{DARK_VARS["accent2"]},#e879f9);
+                        background:linear-gradient(135deg,var(--accent),var(--accent2),#e879f9);
                         -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
                         margin-bottom:0.5rem;">DataNova</div>
             <p style="font-size:1.1rem;color:var(--text2);max-width:500px;margin:0 auto 1rem;line-height:1.7;">
