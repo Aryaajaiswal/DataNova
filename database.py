@@ -36,12 +36,18 @@ class DatabaseConnector:
         except Exception:
             return []
 
-    def get_table_schema(self, table_name: str) -> str:
+    def get_table_schema(self, table_name: str, max_cols: int = 20) -> str:
         try:
             inspector = inspect(self.engine)
             columns = inspector.get_columns(table_name)
+            # Truncate to max_cols to avoid token overflow
+            if len(columns) > max_cols:
+                columns = columns[:max_cols]
+                suffix = f", ... ({len(inspector.get_columns(table_name)) - max_cols} more)"
+            else:
+                suffix = ""
             col_defs = ", ".join(f"{c['name']} {c['type']}" for c in columns)
-            return f"{table_name}({col_defs})"
+            return f"{table_name}({col_defs}{suffix})"
         except Exception:
             return ""
 

@@ -13,7 +13,7 @@ import streamlit as st
 from sqlalchemy import inspect
 from fpdf import FPDF
 
-from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, auto_explore_table, _df_to_text
+from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, build_generation_graph, build_execution_graph
 from setup_db import create_database, DB_PATH, register_upload
 from database import DatabaseConnector
 
@@ -58,8 +58,9 @@ DARK_VARS = {
     "glow": "rgba(139,92,246,0.40)",
 }
 
-def theme_css():
-    v = DARK_VARS if st.session_state.theme == "dark" else LIGHT_VARS
+@st.cache_data
+def get_theme_css(theme):
+    v = DARK_VARS if theme == "dark" else LIGHT_VARS
     return f"""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap');
@@ -153,6 +154,7 @@ def theme_css():
         border: 1px solid var(--input-border) !important;
         border-radius: 12px !important;
         padding: 0.5rem 0.75rem !important;
+        margin-bottom: 0.25rem !important;
     }}
     section[data-testid="stSidebar"] input[type="text"]::placeholder {{
         color: var(--text2) !important;
@@ -184,9 +186,6 @@ def theme_css():
     }}
     section[data-testid="stSidebar"] hr {{
         margin: 0.6rem 0 !important;
-    }}
-    section[data-testid="stSidebar"] input[type="text"] {{
-        margin-bottom: 0.25rem !important;
     }}
 
     /* ── Top Nav ── */
@@ -435,9 +434,6 @@ def theme_css():
     .error-box {{ background: rgba(239,68,68,0.12); border-color: #ef4444; color: #fca5a5; }}
     .success-box {{ background: rgba(34,197,94,0.12); border-color: #22c55e; color: #86efac; }}
     .info-box {{ background: rgba(59,130,246,0.12); border-color: #3b82f6; color: #93c5fd; }}
-    .error-box, .success-box, .info-box {{
-        color: var(--text) !important;
-    }}
 
     /* ── Divider ── */
     hr {{
@@ -664,31 +660,38 @@ if not os.path.exists(DB_PATH):
         create_database()
 
 # ── Session State ──
-for key in ["messages", "pinned_charts", "uploaded_tables", "exploration_results",
-            "auto_dashboards", "selected_dashboard", "cached_questions"]:
-    if key not in st.session_state:
-        if key == "messages": st.session_state[key] = []
-        elif key == "pinned_charts": st.session_state[key] = []
-        elif key == "uploaded_tables": st.session_state[key] = []
-        elif key == "exploration_results": st.session_state[key] = None
-        elif key == "auto_dashboards": st.session_state[key] = {}
-        elif key == "selected_dashboard": st.session_state[key] = None
-        elif key == "cached_questions": st.session_state[key] = {}
+defaults = {
+    "messages": [],
+    "pinned_charts": [],
+    "auto_dashboards": {},
+    "selected_dashboard": None,
+    "cached_questions": {},
+}
+for k, v in defaults.items():
+    st.session_state.setdefault(k, v)
 
 # ── Inject theme CSS ──
-st.markdown(theme_css(), unsafe_allow_html=True)
+st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
 
 # ── Top Navbar ──
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
 st.markdown(f'''
 <div id="top-nav-wrapper">
-  <span class="brand-text">⚡ DataNova</span>
+  <span class="brand-text"> DataNova</span>
   <span style="flex:1"></span>
-  <a href="?theme=toggle" class="theme-btn">{theme_icon}</a>
+  <a href="javascript:void(0)" id="theme-toggle-link" class="theme-btn">{theme_icon}</a>
 </div>
+<script>
+document.getElementById('theme-toggle-link').addEventListener('click', function(e) {{
+    e.preventDefault();
+    var url = new URL(window.location);
+    url.searchParams.set('theme', 'toggle');
+    window.location.href = url.toString();
+}});
+</script>
 ''', unsafe_allow_html=True)
 
-# Handle theme toggle via query param (no page rerun needed)
+# Handle theme toggle via query param
 params = st.query_params
 if "theme" in params:
     st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
@@ -710,20 +713,32 @@ def auto_chart(df: pd.DataFrame):
     return None
 
 def _apply_chart_layout(fig):
-    chart_bg = "rgba(15,23,42,0.3)" if st.session_state.theme == "dark" else "rgba(248,250,255,0.5)"
-    legend_bg = "rgba(0,0,0,0.3)" if st.session_state.theme == "dark" else "rgba(255,255,255,0.8)"
+    is_dark = st.session_state.theme == "dark"
+    text_color = "#ffffff" if is_dark else "#0f172a"
+    text2_color = "#cbd5e1" if is_dark else "#64748b"
+    grid_color = "rgba(148,163,184,0.15)" if is_dark else "rgba(99,102,241,0.1)"
+    chart_bg = "rgba(15,23,42,0.4)" if is_dark else "rgba(248,250,255,0.6)"
+    legend_bg = "rgba(30,41,59,0.8)" if is_dark else "rgba(255,255,255,0.9)"
+    hover_bg = "rgba(30,41,59,0.95)" if is_dark else "rgba(255,255,255,0.95)"
+    
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor=chart_bg,
-        font_family="Inter", font_size=11,
+        font=dict(family="Inter", size=11, color=text_color),
         margin=dict(l=0, r=0, t=32, b=0),
         hovermode="x unified",
+        hoverlabel=dict(bgcolor=hover_bg, font_size=11, font_family="Inter", font_color=text_color),
         showlegend=True,
-        legend=dict(bgcolor=legend_bg, bordercolor="rgba(129,140,248,0.2)", borderwidth=1),
+        legend=dict(
+            bgcolor=legend_bg,
+            bordercolor="rgba(129,140,248,0.2)",
+            borderwidth=1,
+            font=dict(color=text2_color)
+        ),
         dragmode=False,
     )
-    fig.update_xaxes(showgrid=False, color="#94a3b8")
-    fig.update_yaxes(showgrid=True, gridcolor="rgba(148,163,184,0.1)", color="#94a3b8")
+    fig.update_xaxes(showgrid=False, color=text2_color, tickfont=dict(color=text2_color))
+    fig.update_yaxes(showgrid=True, gridcolor=grid_color, color=text2_color, tickfont=dict(color=text2_color))
 
 def render_dynamic_chart(df: pd.DataFrame, spec, key=None):
     if len(df) < 2 or len(df.columns) < 2:
@@ -839,11 +854,84 @@ def db_conn() -> DatabaseConnector:
 def db_engine():
     return db_conn().engine
 
+@st.cache_resource
+def get_cached_connector(url):
+    return DatabaseConnector(url)
+
+@st.cache_data(ttl=30)
+def get_cached_tables(conn_url):
+    c = get_cached_connector(conn_url)
+    return c.get_tables() if c.test_connection() else []
+
+@st.cache_data(ttl=30)
+def get_cached_schema(conn_url, table_name):
+    c = get_cached_connector(conn_url)
+    return c.get_table_schema(table_name) if c.test_connection() else ""
+
+@st.cache_resource
+def get_generation_graph():
+    return build_generation_graph()
+
+@st.cache_resource
+def get_execution_graph():
+    return build_execution_graph()
+
+def run_generation_cached(question: str, history: list, db_url: str, data_dictionary: str = "") -> dict:
+    """Cached wrapper for run_generation that reuses the compiled graph."""
+    graph = get_generation_graph()
+    initial_state = {
+        "db_url": db_url,
+        "data_dictionary": data_dictionary,
+        "user_question": question,
+        "chat_history": history,
+        "database_schema": "",
+        "is_python_task": False,
+        "python_code": "",
+        "sql_query": "",
+        "sql_explanation": "",
+        "final_result": None,
+        "chart_spec": None,
+        "error_message": "",
+        "retry_count": 0,
+    }
+    result = graph.invoke(initial_state)
+    return {
+        "is_python_task": result.get("is_python_task", False),
+        "python_code": result.get("python_code", ""),
+        "sql_query": result.get("sql_query", ""),
+        "sql_explanation": result.get("sql_explanation", ""),
+        "error_message": result.get("error_message", ""),
+    }
+
+def run_execution_cached(sql: str, db_url: str, is_python_task: bool = False, python_code: str = "") -> dict:
+    """Cached wrapper for run_execution that reuses the compiled graph."""
+    graph = get_execution_graph()
+    initial_state = {
+        "db_url": db_url,
+        "sql_query": sql,
+        "is_python_task": is_python_task,
+        "python_code": python_code,
+        "database_schema": "",
+        "data_dictionary": "",
+        "user_question": "",
+        "chat_history": [],
+        "final_result": None,
+        "chart_spec": None,
+        "error_message": "",
+        "retry_count": 0,
+    }
+    result = graph.invoke(initial_state)
+    return {
+        "final_result": result.get("final_result"),
+        "chart_spec": result.get("chart_spec"),
+        "error_message": result.get("error_message", ""),
+    }
+
 # ── Sidebar ──
 with st.sidebar:
     st.markdown('<p class="section-title" style="font-size:0.85rem;">🔌 Connection</p>', unsafe_allow_html=True)
     db_url_input = st.text_input("Database URI", value=f"sqlite:///{DB_PATH}", key="db_url_input", label_visibility="collapsed")
-    db_conn_side = DatabaseConnector(db_url_input)
+    db_conn_side = get_cached_connector(db_url_input)
     is_connected = db_conn_side.test_connection()
     if is_connected:
         st.markdown('<div class="success-box">✓ Connected</div>', unsafe_allow_html=True)
@@ -852,17 +940,17 @@ with st.sidebar:
 
     st.markdown('<p class="section-title" style="font-size:0.85rem;">📂 Tables</p>', unsafe_allow_html=True)
     if is_connected:
-        tables = db_conn_side.get_tables()
+        tables = get_cached_tables(db_url_input)
         user_tables = [t for t in tables if not t.startswith("_")]
         if user_tables:
             for t in user_tables:
-                schema = db_conn_side.get_table_schema(t)
+                schema = get_cached_schema(db_url_input, t)
                 st.markdown(f"**{t}**")
                 st.caption(f"{schema}")
         else:
-            st.markdown('<div class="empty-state" style="padding:1rem;"><p style="color:var(--text2);font-size:0.8rem;">📂 No tables yet — upload data in the <b>Data</b> tab</p></div>', unsafe_allow_html=True)
+            st.markdown('<div class="empty-state" style="padding:1rem;"><p style="color:var(--text2);font-size:0.8rem;"> No tables yet — upload data in the <b>Data</b> tab</p></div>', unsafe_allow_html=True)
     else:
-        st.markdown('<div class="empty-state" style="padding:0.75rem;"><p style="color:var(--text2);font-size:0.8rem;">🔌 Not connected</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="empty-state" style="padding:0.75rem;"><p style="color:var(--text2);font-size:0.8rem;"> Not connected</p></div>', unsafe_allow_html=True)
 
     with st.expander("📖 Data Dictionary", expanded=False):
         data_dictionary = st.text_area("Business rules", "", height=100,
@@ -877,7 +965,7 @@ with st.sidebar:
                 qs = generate_sample_questions(db_url_input)
                 st.session_state["cached_questions"][db_url_input] = qs
         for qi, q in enumerate(st.session_state["cached_questions"].get(db_url_input, [])[:5]):
-            if st.button(q, width='stretch', key=f"sq_{qi}"):
+            if st.button(q, width='stretch', key=f"sidebar_sq_{qi}"):
                 st.session_state["prefill"] = q
 
     st.markdown('<div style="font-size:0.7rem;color:var(--text2);text-align:center;margin-top:1rem;">⚡ DataNova · LangGraph · Groq</div>', unsafe_allow_html=True)
@@ -940,7 +1028,7 @@ with tab_chat:
                         value=code_val,
                         height=140,
                         label_visibility="collapsed",
-                        key="edit_code_pending"
+                        key=f"edit_code_{id(last_msg)}"
                     )
                     
                     btn_col1, btn_col2, btn_col3 = st.columns([3, 1.5, 1], gap="small")
@@ -963,15 +1051,12 @@ with tab_chat:
                             st.rerun()
                     with btn_col2:
                         if st.button("📋 Copy", width='stretch', key="exec_copy"):
-                            st.session_state["copy_code"] = edited_code
+                            st.toast(f"{code_type} copied!", icon="")
+                            st.session_state["copy_buffer"] = edited_code
                     with btn_col3:
                         if st.button("✕", width='stretch', key="exec_cancel", help="Discard"):
                             st.session_state.messages.pop()
                             st.rerun()
-                    
-                    if st.session_state.get("copy_code"):
-                        st.toast("Code copied!", icon="📋")
-                        st.session_state.pop("copy_code", None)
 
         # Chat input
         prefill = st.session_state.pop("prefill", "")
@@ -1081,10 +1166,12 @@ with tab_data:
                         tn = st.text_input("Table name", value=fname, key="web_tn")
                     with c2:
                         if st.button("Add to Database", type="primary", width='stretch'):
-                            dbc = DatabaseConnector(db_url_input)
+                            dbc = get_cached_connector(db_url_input)
                             dbc.upload_dataframe(df_preview, tn)
                             register_upload(tn, url, len(df_preview))
                             st.success(f"Table '{tn}' created!")
+                            get_cached_tables.clear()
+                            get_cached_schema.clear()
                             st.session_state["cached_questions"].pop(db_url_input, None)
                             dash = auto_generate_dashboard(tn, db_url_input)
                             st.session_state.auto_dashboards[tn] = dash
@@ -1093,8 +1180,11 @@ with tab_data:
             except Exception as e:
                 st.error(f"Fetch failed: {e}")
 
-    uploaded_file = st.file_uploader("CSV / Excel", type=["csv", "xlsx", "xls"])
+    uploaded_file = st.file_uploader("CSV / Excel (max 50MB)", type=["csv", "xlsx", "xls"])
     if uploaded_file is not None:
+        if uploaded_file.size > 50 * 1024 * 1024:
+            st.error("File too large. Maximum size is 50MB.")
+            st.stop()
         temp_path = None
         try:
             fb = uploaded_file.read()
@@ -1110,10 +1200,12 @@ with tab_data:
                 ftn = st.text_input("Table name", value=tn)
             with c2:
                 if st.button("Add to Database", type="primary", width='stretch'):
-                    dbc = DatabaseConnector(db_url_input)
+                    dbc = get_cached_connector(db_url_input)
                     dbc.upload_dataframe(df_preview, ftn)
                     register_upload(ftn, uploaded_file.name, len(df_preview))
                     st.success(f"Table '{ftn}' created!")
+                    get_cached_tables.clear()
+                    get_cached_schema.clear()
                     st.session_state["cached_questions"].pop(db_url_input, None)
                     dash = auto_generate_dashboard(ftn, db_url_input)
                     st.session_state.auto_dashboards[ftn] = dash
@@ -1127,8 +1219,8 @@ with tab_data:
 
     st.divider()
     st.markdown('<p class="section-title" style="margin-top:0.5rem;">Your Tables</p>', unsafe_allow_html=True)
-    dbc = DatabaseConnector(db_url_input)
-    tbls = dbc.get_tables()
+    dbc = get_cached_connector(db_url_input)
+    tbls = get_cached_tables(db_url_input)
     ut = [t for t in tbls if not t.startswith("_")]
     if ut:
         for t in ut:

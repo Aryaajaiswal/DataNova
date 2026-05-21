@@ -218,27 +218,122 @@ def generate_sql(state: GraphState) -> GraphState:
         return {**state, "sql_query": "", "error_message": f"Failed to generate SQL: {str(e)}"}
 
 
+import ast
+import signal
+import pandas as pd
+import plotly.express as px
+from groq import Groq
+from langgraph.graph import StateGraph, END
+from typing import TypedDict, Optional, Any
+from database import DatabaseConnector
+
+# ── Safe Python Execution ───────────────────────────────────────────────────
+DANGEROUS_NODES = (
+    ast.Import, ast.ImportFrom, ast.Call, ast.Attribute,
+    ast.Subscript, ast.Await, ast.AsyncFor, ast.AsyncWith,
+    ast.Yield, ast.YieldFrom, ast.Global, ast.Nonlocal,
+    ast.Delete, ast.Assert, ast.Exec, ast.Print,
+)
+
+ALLOWED_BUILTIN_NAMES = {
+    "abs", "all", "any", "bool", "dict", "enumerate", "float",
+    "int", "isinstance", "len", "list", "max", "min", "print",
+    "range", "round", "sorted", "str", "sum", "tuple", "type",
+    "zip", "map", "filter", "reversed", "set", "True", "False", "None",
+}
+
+ALLOWED_MODULE_NAMES = {"pandas", "numpy", "plotly", "math", "datetime", "statistics"}
+
+def _validate_python_ast(code: str) -> Optional[str]:
+    """Return error message if code contains dangerous patterns, else None."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as e:
+        return f"Syntax error: {e}"
+    
+    for node in ast.walk(tree):
+        # Block imports
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                if node.module.split(".")[0] not in ALLOWED_MODULE_NAMES:
+                    return f"Import of '{node.module}' is not allowed"
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name.split(".")[0] not in ALLOWED_MODULE_NAMES:
+                        return f"Import of '{alias.name}' is not allowed"
+        
+        # Block dangerous builtins via attribute access
+        if isinstance(node, ast.Attribute):
+            attr = node.attr
+            if attr.startswith("__") and attr.endswith("__"):
+                return f"Access to dunder attribute '{attr}' is not allowed"
+            if attr in ("__class__", "__base__", "__subclasses__", "__mro__",
+                        "__globals__", "__builtins__", "__import__", "system",
+                        "popen", "exec", "eval", "compile", "open", "input"):
+                return f"Access to '{attr}' is not allowed"
+        
+        # Block function calls to dangerous names
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Name) and node.func.id in (
+                "exec", "eval", "compile", "open", "input", "__import__",
+                "getattr", "setattr", "delattr", "vars", "dir", "help",
+            ):
+                return f"Call to '{node.func.id}' is not allowed"
+    
+    return None
+
+class TimeoutError(Exception):
+    pass
+
+def _timeout_handler(signum, frame):
+    raise TimeoutError("Python execution timed out (10s limit)")
+
+def _execute_sandboxed(code: str, db_url: str, timeout: int = 10) -> tuple:
+    """Execute Python code in a restricted environment with timeout."""
+    # AST validation first
+    error = _validate_python_ast(code)
+    if error:
+        raise RuntimeError(f"Code validation failed: {error}")
+    
+    # Create restricted environment
+    allowed_globals = {
+        "__builtins__": {name: __builtins__[name] for name in ALLOWED_BUILTIN_NAMES if name in __builtins__},
+        "pd": pd,
+        "px": px,
+        "np": __import__("numpy") if __import__("importlib").util.find_spec("numpy") else None,
+    }
+    
+    local_vars = {}
+    
+    # Set timeout (Unix only, fallback for Windows)
+    if hasattr(signal, "SIGALRM"):
+        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+        signal.alarm(timeout)
+    
+    try:
+        exec(compile(code, "<sandbox>", "exec"), allowed_globals, local_vars)
+    except TimeoutError:
+        raise RuntimeError("Python execution timed out")
+    finally:
+        if hasattr(signal, "SIGALRM"):
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
+    
+    if "run_analysis" not in local_vars:
+        raise RuntimeError("run_analysis function not found in generated code")
+    
+    result = local_vars["run_analysis"](db_url)
+    if not isinstance(result, tuple) or len(result) != 2:
+        raise RuntimeError("run_analysis must return (DataFrame, chart_spec)")
+    
+    return result
+
 # ── Execution Nodes (Used manually via HITL or retries) ──────────────────────
 def execute_python(state: GraphState) -> GraphState:
     """Execute the generated Python script in a restricted sandbox."""
     code = state["python_code"]
-    safe_builtins = {
-        "abs": abs, "all": all, "any": any, "bool": bool,
-        "dict": dict, "enumerate": enumerate, "float": float,
-        "int": int, "isinstance": isinstance, "len": len,
-        "list": list, "max": max, "min": min, "print": print,
-        "range": range, "round": round, "sorted": sorted,
-        "str": str, "sum": sum, "tuple": tuple, "type": type,
-        "zip": zip, "map": map, "filter": filter, "reversed": reversed,
-        "set": set, "True": True, "False": False, "None": None,
-    }
-    local_vars = {}
-    restricted_globals = {"__builtins__": safe_builtins}
     try:
-        exec(code, restricted_globals, local_vars)
-        if "run_analysis" not in local_vars:
-            return {**state, "error_message": "run_analysis function not found in generated code."}
-        df, fig = local_vars["run_analysis"](state["db_url"])
+        df, fig = _execute_sandboxed(code, state["db_url"])
         return {**state, "final_result": df, "chart_spec": fig, "error_message": ""}
     except Exception as exc:
         return {**state, "error_message": f"Python Execution Error: {str(exc)}"}
