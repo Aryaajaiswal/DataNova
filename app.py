@@ -752,7 +752,7 @@ def render_dynamic_chart(df: pd.DataFrame, spec, key=None):
         fig = auto_chart(df)
     if fig:
         _apply_chart_layout(fig)
-        st.plotly_chart(fig, use_container_width=True,
+        st.plotly_chart(fig, width='stretch',
                         config={"responsive": True, "displayModeBar": False, "staticPlot": False},
                         key=key)
     return fig
@@ -877,7 +877,7 @@ with st.sidebar:
                 qs = generate_sample_questions(db_url_input)
                 st.session_state["cached_questions"][db_url_input] = qs
         for qi, q in enumerate(st.session_state["cached_questions"].get(db_url_input, [])[:5]):
-            if st.button(q, use_container_width=True, key=f"sq_{qi}"):
+            if st.button(q, width='stretch', key=f"sq_{qi}"):
                 st.session_state["prefill"] = q
 
     st.markdown('<div style="font-size:0.7rem;color:var(--text2);text-align:center;margin-top:1rem;">⚡ DataNova · LangGraph · Groq</div>', unsafe_allow_html=True)
@@ -945,7 +945,7 @@ with tab_chat:
                     
                     btn_col1, btn_col2, btn_col3 = st.columns([3, 1.5, 1], gap="small")
                     with btn_col1:
-                        if st.button("▶ Execute Query", type="primary", use_container_width=True, key="exec_primary"):
+                        if st.button("▶ Execute Query", type="primary", width='stretch', key="exec_primary"):
                             if is_python:
                                 last_msg["python_code"] = edited_code
                             else:
@@ -962,20 +962,16 @@ with tab_chat:
                             last_msg["error"] = exec_res.get("error_message")
                             st.rerun()
                     with btn_col2:
-                        if st.button("📋 Copy", use_container_width=True, key="exec_copy"):
+                        if st.button("📋 Copy", width='stretch', key="exec_copy"):
                             st.session_state["copy_code"] = edited_code
                     with btn_col3:
-                        if st.button("✕", use_container_width=True, key="exec_cancel", help="Discard"):
+                        if st.button("✕", width='stretch', key="exec_cancel", help="Discard"):
                             st.session_state.messages.pop()
                             st.rerun()
                     
                     if st.session_state.get("copy_code"):
                         st.toast("Code copied!", icon="📋")
                         st.session_state.pop("copy_code", None)
-                    with c2:
-                        if st.button("Cancel"):
-                            st.session_state.messages.pop()
-                            st.rerun()
 
         # Chat input
         prefill = st.session_state.pop("prefill", "")
@@ -1023,10 +1019,10 @@ with tab_chat:
                     st.success(f"{len(df)} rows returned")
                     render_dynamic_chart(df, last.get("chart_spec"), key="result_chart")
                     with st.expander("View Data", expanded=False):
-                        st.dataframe(df, use_container_width=True, height=200)
+                        st.dataframe(df, width='stretch', height=200)
                     csv = df.to_csv(index=False)
-                    st.download_button("📥 CSV", csv, f"export_{int(time.time())}.csv", "text/csv", use_container_width=True)
-                    if st.button("📌 Pin", use_container_width=True):
+                    st.download_button("📥 CSV", csv, f"export_{int(time.time())}.csv", "text/csv", width='stretch')
+                    if st.button("📌 Pin", width='stretch'):
                         q = ""
                         for m in reversed(st.session_state.messages[:-1]):
                             if m["role"] == "user":
@@ -1078,13 +1074,13 @@ with tab_data:
                             tables = pd.read_html(io.StringIO(resp.text))
                             df_preview = tables[0]
                     st.success(f"{len(df_preview)} rows")
-                    st.dataframe(df_preview.head(10), use_container_width=True)
+                    st.dataframe(df_preview.head(10), width='stretch')
                     fname = sanitize_table_name(url.split("/")[-1]) or "web_data"
                     c1, c2 = st.columns([1, 2])
                     with c1:
                         tn = st.text_input("Table name", value=fname, key="web_tn")
                     with c2:
-                        if st.button("Add to Database", type="primary", use_container_width=True):
+                        if st.button("Add to Database", type="primary", width='stretch'):
                             dbc = DatabaseConnector(db_url_input)
                             dbc.upload_dataframe(df_preview, tn)
                             register_upload(tn, url, len(df_preview))
@@ -1108,12 +1104,12 @@ with tab_data:
             tn = sanitize_table_name(uploaded_file.name)
             df_preview = pd.read_csv(temp_path) if ext.lower() == ".csv" else pd.read_excel(temp_path)
             st.success(f"{len(df_preview)} rows, {len(df_preview.columns)} cols")
-            st.dataframe(df_preview.head(10), use_container_width=True)
+            st.dataframe(df_preview.head(10), width='stretch')
             c1, c2 = st.columns([1, 2])
             with c1:
                 ftn = st.text_input("Table name", value=tn)
             with c2:
-                if st.button("Add to Database", type="primary", use_container_width=True):
+                if st.button("Add to Database", type="primary", width='stretch'):
                     dbc = DatabaseConnector(db_url_input)
                     dbc.upload_dataframe(df_preview, ftn)
                     register_upload(ftn, uploaded_file.name, len(df_preview))
@@ -1139,7 +1135,7 @@ with tab_data:
             with st.expander(f"📊 {t}"):
                 try:
                     dft = dbc.execute_query(f"SELECT * FROM [{t}] LIMIT 50")
-                    st.dataframe(dft, use_container_width=True)
+                    st.dataframe(dft, width='stretch')
                 except Exception as e:
                     st.error(str(e))
     else:
@@ -1289,7 +1285,7 @@ with tab_dash:
             if dash.get("suggested_questions"):
                 st.markdown('<p class="section-title" style="font-size:0.9rem;">💡 Suggested Questions</p>', unsafe_allow_html=True)
                 for qi, q in enumerate(dash["suggested_questions"]):
-                    if st.button(q, use_container_width=True, key=f"sq_{selected}_{qi}"):
+                    if st.button(q, width='stretch', key=f"sq_{selected}_{qi}"):
                         st.session_state["prefill"] = q
 
     # ── Pinned Charts ──
@@ -1299,7 +1295,7 @@ with tab_dash:
         with pc:
             st.markdown(f"##### 📌 Pinned Charts ({len(st.session_state.pinned_charts)})")
         with pd:
-            if st.button("📄 Generate PDF Report", use_container_width=True):
+            if st.button("📄 Generate PDF Report", width='stretch'):
                 with st.spinner("Writing report..."):
                     sm = generate_executive_summary(st.session_state.pinned_charts)
                     pdf = FPDF()
@@ -1315,7 +1311,7 @@ with tab_dash:
                 render_dynamic_chart(item["df"], item["chart_spec"], key=f"pin_{item['id']}")
                 with st.expander("Data & Query", expanded=False):
                     st.code(item["sql"], language="sql")
-                    st.dataframe(item["df"], use_container_width=True, height=120)
+                    st.dataframe(item["df"], width='stretch', height=120)
                 if st.button("❌ Remove", key=f"rp_{item['id']}"):
                     st.session_state.pinned_charts.pop(idx)
                     st.rerun()
