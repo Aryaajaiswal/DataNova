@@ -43,19 +43,19 @@ LIGHT_VARS = {
 }
 DARK_VARS = {
     "bg": "linear-gradient(135deg, #0f172a 0%, #111827 40%, #1e1b4b 100%)",
-    "bg2": "#111827",
-    "card": "rgba(255,255,255,0.06)",
-    "card-border": "rgba(255,255,255,0.08)",
+    "bg2": "#1e293b",
+    "card": "rgba(255,255,255,0.08)",
+    "card-border": "rgba(255,255,255,0.12)",
     "sidebar": "rgba(15,23,42,0.95)",
-    "text": "#f1f5f9",
-    "text2": "#94a3b8",
+    "text": "#ffffff",
+    "text2": "#cbd5e1",
     "accent": "#818cf8",
     "accent2": "#a78bfa",
-    "hover": "rgba(129,140,248,0.12)",
-    "shadow": "rgba(0,0,0,0.4)",
-    "input-bg": "rgba(255,255,255,0.06)",
-    "input-border": "rgba(255,255,255,0.12)",
-    "glow": "rgba(139,92,246,0.35)",
+    "hover": "rgba(129,140,248,0.15)",
+    "shadow": "rgba(0,0,0,0.5)",
+    "input-bg": "rgba(255,255,255,0.10)",
+    "input-border": "rgba(255,255,255,0.20)",
+    "glow": "rgba(139,92,246,0.40)",
 }
 
 def theme_css():
@@ -129,6 +129,9 @@ def theme_css():
         backdrop-filter: blur(20px) !important;
         padding: 0.75rem 0.75rem 2rem 0.75rem !important;
         gap: 0 !important;
+    }}
+    section[data-testid="stSidebar"] * {{
+        color: var(--text) !important;
     }}
     section[data-testid="stSidebar"] .st-emotion-cache-1wivap2,
     section[data-testid="stSidebar"] h2,
