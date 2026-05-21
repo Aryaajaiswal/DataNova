@@ -127,9 +127,9 @@ def theme_css():
         background: var(--sidebar) !important;
         border-right: 1px solid var(--card-border) !important;
         backdrop-filter: blur(20px) !important;
-        padding-top: 0.75rem !important;
+        padding: 0.75rem 0.75rem 2rem 0.75rem !important;
+        gap: 0 !important;
     }}
-    section[data-testid="stSidebar"] * {{ color: var(--text) !important; }}
     section[data-testid="stSidebar"] .st-emotion-cache-1wivap2,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {{
@@ -138,8 +138,18 @@ def theme_css():
         -webkit-text-fill-color: transparent;
         font-weight: 700;
     }}
+    section[data-testid="stSidebar"] .section-title {{
+        margin-bottom: 0.5rem !important;
+        margin-top: 0.75rem !important;
+    }}
+    section[data-testid="stSidebar"] .section-title:first-child {{
+        margin-top: 0 !important;
+    }}
     section[data-testid="stSidebar"] hr {{
         margin: 0.6rem 0 !important;
+    }}
+    section[data-testid="stSidebar"] input[type="text"] {{
+        margin-bottom: 0.25rem !important;
     }}
 
     /* ── Top Nav ── */
