@@ -497,14 +497,47 @@ def theme_css():
     .stApp header {{ display: none; }}
     .main > div {{ padding-top: 0 !important; padding-bottom: 0 !important; }}
     div.block-container {{
-        padding-top: 0.5rem !important;
-        padding-bottom: 0.5rem !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
         max-width: 100% !important;
     }}
     .row-widget.stTabs {{ margin-bottom: 0 !important; }}
-    .stTabs [data-baseweb="tab-list"] {{ gap: 0.25rem; margin-bottom: 0.25rem; }}
-    .stTabs [data-baseweb="tab"] {{ font-size: 0.8rem; padding: 0.25rem 0.6rem; }}
-    div[data-testid="stVerticalBlock"] > div {{ gap: 0.5rem !important; }}
+    .stTabs [data-baseweb="tab-list"] {{ gap: 0.25rem; margin-bottom: 0.15rem; }}
+    .stTabs [data-baseweb="tab"] {{ font-size: 0.8rem; padding: 0.2rem 0.5rem; }}
+    div[data-testid="stVerticalBlock"] > div {{ gap: 0.35rem !important; }}
+
+    /* ── Sidebar narrower ── */
+    section[data-testid="stSidebar"] {{
+        min-width: 220px !important;
+        max-width: 260px !important;
+    }}
+
+    /* ── Hide invisible nav buttons (white pills) ── */
+    div[data-testid="column"]:has(> button:empty),
+    button:empty {{
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        border: none !important;
+        overflow: hidden !important;
+    }}
+
+    /* ── File uploader glass ── */
+    .stFileUploader > div > div {{
+        background: var(--card) !important;
+        border: 1px dashed var(--card-border) !important;
+        border-radius: 20px !important;
+        backdrop-filter: blur(8px) !important;
+        padding: 1.5rem !important;
+        transition: all 0.25s ease !important;
+    }}
+    .stFileUploader > div > div:hover {{
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 20px var(--glow) !important;
+    }}
+    .stFileUploader small {{ color: var(--text2) !important; }}
 
     /* ── DataFrame ── */
     div[data-testid="stDataFrame"] {{
@@ -519,14 +552,47 @@ def theme_css():
         border-radius: 14px !important;
         background: var(--card) !important;
         backdrop-filter: blur(8px) !important;
-        padding: 0.25rem 0.75rem !important;
-        margin-bottom: 0.4rem !important;
+        padding: 0.2rem 0.6rem !important;
+        margin-bottom: 0.3rem !important;
     }}
     details summary {{
         font-weight: 600 !important;
-        font-size: 0.82rem !important;
+        font-size: 0.8rem !important;
         color: var(--text) !important;
-        padding: 0.35rem 0 !important;
+        padding: 0.3rem 0 !important;
+    }}
+
+    /* ── Text inputs glass ── */
+    input[type="text"], input[type="url"], input[type="search"], textarea:not([data-testid="stChatInput"] textarea) {{
+        background: var(--input-bg) !important;
+        border: 1px solid var(--input-border) !important;
+        border-radius: 14px !important;
+        color: var(--text) !important;
+        backdrop-filter: blur(8px) !important;
+        transition: all 0.2s !important;
+    }}
+    input:focus {{ border-color: var(--accent) !important; box-shadow: 0 0 0 3px var(--hover) !important; }}
+
+    /* ── Select boxes glass ── */
+    div[data-baseweb="select"] > div {{
+        background: var(--input-bg) !important;
+        border: 1px solid var(--input-border) !important;
+        border-radius: 14px !important;
+        backdrop-filter: blur(8px) !important;
+    }}
+
+    /* ── Section title hierarchy ── */
+    .section-title {{
+        font-size: 1.1rem !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.02em !important;
+        margin-bottom: 0.25rem !important;
+    }}
+    .section-sub {{
+        font-size: 0.78rem !important;
+        color: var(--text2) !important;
+        opacity: 0.7 !important;
+        margin-bottom: 0.5rem !important;
     }}
     </style>
     """
@@ -719,7 +785,7 @@ def db_engine():
 
 # ── Sidebar ──
 with st.sidebar:
-    st.markdown("### 🔌 Connection")
+    st.markdown('<p class="section-title" style="font-size:0.85rem;">🔌 Connection</p>')
     db_url_input = st.text_input("Database URI", value=f"sqlite:///{DB_PATH}", key="db_url_input", label_visibility="collapsed")
     db_conn_side = DatabaseConnector(db_url_input)
     is_connected = db_conn_side.test_connection()
@@ -728,7 +794,7 @@ with st.sidebar:
     else:
         st.markdown('<div class="error-box">✗ Connection failed</div>', unsafe_allow_html=True)
 
-    st.markdown("### 📂 Tables")
+    st.markdown('<p class="section-title" style="font-size:0.85rem;">📂 Tables</p>')
     if is_connected:
         tables = db_conn_side.get_tables()
         user_tables = [t for t in tables if not t.startswith("_")]
@@ -738,7 +804,7 @@ with st.sidebar:
                 st.markdown(f"**{t}**")
                 st.caption(f"{schema}")
         else:
-            st.caption("No tables yet. Upload data in **Data** tab.")
+            st.markdown('<div class="empty-state" style="padding:1rem;"><p style="color:var(--text2);font-size:0.8rem;">📂 No tables yet — upload data in the <b>Data</b> tab</p></div>', unsafe_allow_html=True)
     else:
         st.caption("Not connected.")
 
@@ -747,7 +813,7 @@ with st.sidebar:
             placeholder="Revenue = price * quantity\nActive users = logged in within 30 days")
 
     if is_connected:
-        st.markdown("### 💡 Questions")
+        st.markdown('<p class="section-title" style="font-size:0.85rem;">💡 Questions</p>')
         if "cached_questions" not in st.session_state:
             st.session_state["cached_questions"] = {}
         if db_url_input not in st.session_state["cached_questions"]:
@@ -772,7 +838,7 @@ if active == "Chat":
 
     with chat_col:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("#### 💬 AI Chat")
+        st.markdown('<p class="section-title">💬 AI Chat</p>')
         for i, msg in enumerate(st.session_state.messages):
             is_last = (i == len(st.session_state.messages) - 1)
             if is_last and msg.get("pending_execution"):
@@ -863,7 +929,7 @@ if active == "Chat":
 
     with result_col:
         st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-        st.markdown("#### 📊 Results")
+        st.markdown('<p class="section-title">📊 Results</p>')
         if st.session_state.messages:
             last = st.session_state.messages[-1]
             if last["role"] == "assistant" and not last.get("pending_execution"):
@@ -900,7 +966,7 @@ if active == "Chat":
 # PAGE: DATA
 # ════════════════════════════════════════════════════
 elif active == "Data":
-    st.markdown("#### 📁 Upload Data")
+    st.markdown('<p class="section-title">📁 Upload Data</p>')
     with st.expander("🌐 Fetch from URL", expanded=False):
         url = st.text_input("URL to CSV/JSON/Excel", placeholder="https://example.com/data.csv", label_visibility="collapsed")
         if url:
@@ -979,7 +1045,7 @@ elif active == "Data":
                 os.remove(temp_path)
 
     st.divider()
-    st.markdown("#### Your Tables")
+    st.markdown('<p class="section-title" style="margin-top:0.5rem;">Your Tables</p>')
     dbc = DatabaseConnector(db_url_input)
     tbls = dbc.get_tables()
     ut = [t for t in tbls if not t.startswith("_")]
@@ -992,7 +1058,7 @@ elif active == "Data":
                 except Exception as e:
                     st.error(str(e))
     else:
-        st.info("No tables yet. Upload a file above.")
+        st.markdown('<div class="empty-state"><div style="font-size:2rem;margin-bottom:0.5rem;">📂</div><p style="color:var(--text2);">Upload your first dataset above to begin analysis</p></div>', unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════
 # PAGE: DASHBOARD
@@ -1037,7 +1103,7 @@ elif active == "Dashboard":
 
         active_filter = None
         if filter_cols:
-            st.markdown("##### 🔍 Filters")
+            st.markdown('<p class="section-title" style="margin-bottom:0;">🔍 Filters</p>')
             fcols = st.columns(min(len(filter_cols), 5))
             for fi, fc in enumerate(filter_cols[:5]):
                 with fcols[fi]:
@@ -1136,7 +1202,7 @@ elif active == "Dashboard":
 
         with sq:
             if dash.get("suggested_questions"):
-                st.markdown("##### 💡 Suggested Questions")
+                st.markdown('<p class="section-title" style="font-size:0.9rem;">💡 Suggested Questions</p>')
                 for qi, q in enumerate(dash["suggested_questions"]):
                     if st.button(q, use_container_width=True, key=f"sq_{selected}_{qi}"):
                         st.session_state["prefill"] = q
