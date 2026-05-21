@@ -957,16 +957,19 @@ with st.sidebar:
             placeholder="Revenue = price * quantity\nActive users = logged in within 30 days")
 
     if is_connected:
-        st.markdown('<p class="section-title" style="font-size:0.85rem;">💡 Questions</p>', unsafe_allow_html=True)
-        if "cached_questions" not in st.session_state:
-            st.session_state["cached_questions"] = {}
-        if db_url_input not in st.session_state["cached_questions"]:
-            with st.spinner("Generating..."):
-                qs = generate_sample_questions(db_url_input)
-                st.session_state["cached_questions"][db_url_input] = qs
-        for qi, q in enumerate(st.session_state["cached_questions"].get(db_url_input, [])[:5]):
-            if st.button(q, width='stretch', key=f"sidebar_sq_{qi}"):
-                st.session_state["prefill"] = q
+        tables = get_cached_tables(db_url_input)
+        user_tables = [t for t in tables if not t.startswith("_")]
+        if user_tables:
+            st.markdown('<p class="section-title" style="font-size:0.85rem;">💡 Questions</p>', unsafe_allow_html=True)
+            if "cached_questions" not in st.session_state:
+                st.session_state["cached_questions"] = {}
+            if db_url_input not in st.session_state["cached_questions"]:
+                with st.spinner("Generating..."):
+                    qs = generate_sample_questions(db_url_input)
+                    st.session_state["cached_questions"][db_url_input] = qs
+            for qi, q in enumerate(st.session_state["cached_questions"].get(db_url_input, [])[:5]):
+                if st.button(q, width='stretch', key=f"sidebar_sq_{qi}"):
+                    st.session_state["prefill"] = q
 
     st.markdown('<div style="font-size:0.7rem;color:var(--text2);text-align:center;margin-top:1rem;">⚡ DataNova · LangGraph · Groq</div>', unsafe_allow_html=True)
 
