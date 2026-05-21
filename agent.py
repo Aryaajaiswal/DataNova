@@ -232,7 +232,7 @@ DANGEROUS_NODES = (
     ast.Import, ast.ImportFrom, ast.Call, ast.Attribute,
     ast.Subscript, ast.Await, ast.AsyncFor, ast.AsyncWith,
     ast.Yield, ast.YieldFrom, ast.Global, ast.Nonlocal,
-    ast.Delete, ast.Assert, ast.Exec, ast.Print,
+    ast.Delete, ast.Assert,
 )
 
 ALLOWED_BUILTIN_NAMES = {
