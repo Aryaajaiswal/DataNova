@@ -301,69 +301,12 @@ def get_theme_css(theme):
         transform: scale(1.05);
     }}
 
-    /* ── Top Nav ── */
-    #top-nav-wrapper {{
-        display: flex; align-items: center; gap: 0.5rem;
-        background: var(--card);
-        backdrop-filter: blur(24px) saturate(1.4);
-        -webkit-backdrop-filter: blur(24px) saturate(1.4);
-        border: 1px solid var(--card-border);
-        border-radius: 20px;
-        padding: 0.3rem 0.5rem 0.3rem 1rem;
-        margin-bottom: 0.5rem;
-        box-shadow: 0 4px 24px var(--shadow);
-        transition: box-shadow 0.3s ease;
-    }}
-    #top-nav-wrapper:hover {{
-        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
-    }}
-    #top-nav-wrapper a {{
-        font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 500;
-        color: var(--text2); text-decoration: none;
-        padding: 0.35rem 0.7rem; border-radius: 14px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }}
-    #top-nav-wrapper a:hover {{ background: var(--hover); color: var(--text); transform: translateY(-1px); }}
-    #top-nav-wrapper a.active {{
-        background: linear-gradient(135deg, var(--accent), var(--accent2));
-        color: #fff !important;
-        box-shadow: 0 4px 16px var(--glow);
-    }}
-    /* ── Sidebar collapse / re-open toggle ── */
+    /* ── Top Bar ── */
     div[data-testid="column"]:has(> div[style*="Syne"]) {{
-        background: var(--card);
-        backdrop-filter: blur(24px) saturate(1.4);
-        -webkit-backdrop-filter: blur(24px) saturate(1.4);
-        border: 1px solid var(--card-border);
-        border-radius: 20px;
-        padding: 0.3rem 0 0.3rem 0.2rem;
-        box-shadow: 0 4px 24px var(--shadow);
-        transition: box-shadow 0.3s ease;
-        overflow: visible !important;
-        min-width: fit-content !important;
+        padding: 0.2rem 0 0.2rem 0.5rem !important;
     }}
-    div[data-testid="column"]:has(> div.brand-text):hover {{
-        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
-    }}
-    /* Theme toggle button inside the navbar row */
-    div[data-testid="column"]:has(> div[style*="Syne"]) + div[data-testid="column"] {{
-        background: var(--card);
-        backdrop-filter: blur(24px) saturate(1.4);
-        -webkit-backdrop-filter: blur(24px) saturate(1.4);
-        border: 1px solid var(--card-border);
-        border-radius: 20px;
-        padding: 0.2rem 0.5rem 0.2rem 0;
-        box-shadow: 0 4px 24px var(--shadow);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-left: 0 !important;
-        transition: box-shadow 0.3s ease;
-    }}
-    div[data-testid="column"]:has(> div[style*="Syne"]) + div[data-testid="column"]:hover {{
-        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
-    }}
-    div[data-testid="column"]:has(> div[style*="Syne"]) + div[data-testid="column"] button {{
+    div[data-testid="column"]:first-child button,
+    div[data-testid="column"]:last-child button {{
         font-size: 1.05rem !important;
         padding: 0.15rem 0.4rem !important;
         border-radius: 14px !important;
@@ -862,18 +805,17 @@ for k, v in defaults.items():
 # ── Inject theme CSS ──
 st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
 
-# ── Top Navbar ──
+# ── Top Bar ──
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
-nb_cols = st.columns([1, 5, 14, 1], gap="small")
-with nb_cols[0]:
-    ham_icon = "☰"
-    if st.button(ham_icon, key="sidebar_toggle_nav", help="Toggle sidebar"):
+top1, top2, top3 = st.columns([1, 8, 1], gap="small")
+with top1:
+    if st.button("☰", key="sidebar_toggle_top", help="Toggle sidebar"):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
         st.rerun()
-with nb_cols[1]:
-    st.markdown('<div style="font-family:Syne,sans-serif;font-weight:800;font-size:1.4rem;padding:0.15rem 0 0.15rem 0.8rem;background:linear-gradient(90deg,var(--accent),var(--accent2),#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;overflow:visible;">DataNova</div>', unsafe_allow_html=True)
-with nb_cols[3]:
-    if st.button(theme_icon, key="theme_toggle_nav", help="Toggle theme"):
+with top2:
+    st.markdown('<div style="font-family:Syne,sans-serif;font-weight:800;font-size:1.4rem;padding:0.15rem 0;background:linear-gradient(90deg,var(--accent),var(--accent2),#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">DataNova</div>', unsafe_allow_html=True)
+with top3:
+    if st.button(theme_icon, key="theme_toggle_top", help="Toggle theme"):
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
         st.rerun()
 
@@ -1155,11 +1097,11 @@ with st.sidebar:
 # ── Hero Section (shown when no data loaded) ──
 has_data = bool(st.session_state.auto_dashboards) or bool(st.session_state.pinned_charts)
 if not has_data:
-    st.markdown('<div style="height:2rem;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="height:1.5rem;"></div>', unsafe_allow_html=True)
     hero_col1, hero_col2, hero_col3 = st.columns([1, 2, 1])
     with hero_col2:
         st.markdown(f'''
-        <div style="text-align:center;padding:2rem 1rem 0.5rem;">
+        <div style="text-align:center;padding:1.5rem 1rem 0.5rem;">
             <div style="font-family:'Syne',sans-serif;font-size:2.8rem;font-weight:800;
                         background:linear-gradient(135deg,{DARK_VARS["accent"]},{DARK_VARS["accent2"]},#e879f9);
                         -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
@@ -1184,7 +1126,11 @@ if not has_data:
                 st.session_state["load_demo"] = True
                 st.rerun()
 
-    # Feature cards row
+# ── Tabs (instant, no rerun) ──
+tab_chat, tab_data, tab_dash = st.tabs(["💬 Chat", "📁 Data", "📊 Dashboard"])
+
+# ── Feature cards (landing state) ──
+if not has_data:
     fc1, fc2, fc3 = st.columns(3, gap="small")
     with fc1:
         st.markdown(f'''<div style="text-align:center;padding:1.2rem 0.5rem;background:var(--card);border:1px solid var(--card-border);border-radius:18px;">
@@ -1204,11 +1150,7 @@ if not has_data:
             <div style="font-weight:600;font-size:0.85rem;">Executive Insights</div>
             <div style="font-size:0.7rem;color:var(--text2);margin-top:0.2rem;">AI-powered summaries</div>
         </div>''', unsafe_allow_html=True)
-
     st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
-
-# ── Tabs (instant, no rerun) ──
-tab_chat, tab_data, tab_dash = st.tabs(["💬 Chat", "📁 Data", "📊 Dashboard"])
 
 # ════════════════════════════════════════════════════
 # TAB: CHAT
