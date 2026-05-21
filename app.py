@@ -1147,6 +1147,7 @@ if not has_data:
         with c2:
             if st.button("✨ Try Demo Dataset", width='stretch', key="hero_demo"):
                 st.session_state["load_demo"] = True
+                st.session_state.selected_tab = "📁 Data"
                 st.rerun()
 
 # ── Custom Tabs (programmatic switching) ──
