@@ -144,81 +144,55 @@ def theme_css():
         margin: 0.6rem 0 !important;
     }}
 
-    /* ── Animated brand text ── */
-    .brand-text {{
-        font-family: 'Syne', sans-serif;
-        font-weight: 800;
-        font-size: 1.4rem;
+    /* ── Top Nav ── */
+    #top-nav-wrapper {{
+        display: flex; align-items: center; gap: 0.5rem;
+        background: var(--card);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 0.3rem 0.5rem 0.3rem 1rem;
+        margin-bottom: 0.5rem;
+        box-shadow: 0 4px 24px var(--shadow);
+    }}
+    #top-nav-wrapper .brand-text {{
+        font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem;
         letter-spacing: 0.02em;
         background: linear-gradient(90deg, var(--accent), var(--accent2), #e879f9);
         background-size: 200% auto;
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
         background-clip: text;
         animation: gradient-shift 3s ease infinite;
-        display: inline-flex; align-items: center; gap: 0.3rem;
         filter: drop-shadow(0 0 12px var(--glow));
+        margin-right: 0.75rem;
+    }}
+    #top-nav-wrapper a {{
+        font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 500;
+        color: var(--text2); text-decoration: none;
+        padding: 0.35rem 0.7rem; border-radius: 14px;
+        transition: all 0.25s ease;
+    }}
+    #top-nav-wrapper a:hover {{ background: var(--hover); color: var(--text); }}
+    #top-nav-wrapper a.active {{
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        color: #fff !important;
+        box-shadow: 0 4px 16px var(--glow);
+    }}
+    #top-nav-wrapper .theme-btn {{
+        font-size: 1.05rem; padding: 0.25rem 0.5rem;
+        border-radius: 12px; border: 1px solid var(--card-border);
+        background: var(--input-bg); text-decoration: none; cursor: pointer;
+        transition: all 0.2s;
+        margin-left: auto;
+    }}
+    #top-nav-wrapper .theme-btn:hover {{
+        box-shadow: 0 0 12px var(--glow);
     }}
     @keyframes gradient-shift {{
         0% {{ background-position: 0% center; }}
         50% {{ background-position: 100% center; }}
         100% {{ background-position: 0% center; }}
-    }}
-
-    /* ── Top Nav ── */
-    /* Glass nav bar row — matches the st.horizontalBlock containing .brand-text */
-    div[data-testid="stHorizontalBlock"]:has(.brand-text) {{
-        background: var(--card) !important;
-        backdrop-filter: blur(20px) !important;
-        -webkit-backdrop-filter: blur(20px) !important;
-        border: 1px solid var(--card-border) !important;
-        border-radius: 20px !important;
-        padding: 0.25rem 0.5rem 0.25rem 1rem !important;
-        margin-bottom: 0.5rem !important;
-        box-shadow: 0 4px 24px var(--shadow) !important;
-    }}
-    div[data-testid="stHorizontalBlock"]:has(.brand-text) > div {{
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-    }}
-    /* Nav buttons inside the nav row */
-    div[data-testid="stHorizontalBlock"]:has(.brand-text) button:not([key*="theme"]) {{
-        background: transparent !important;
-        border: none !important;
-        color: var(--text2) !important;
-        font-size: 0.82rem !important;
-        font-weight: 500 !important;
-        padding: 0.35rem 0.5rem !important;
-        border-radius: 14px !important;
-        transition: all 0.25s ease !important;
-        min-height: unset !important;
-        line-height: 1.4 !important;
-    }}
-    div[data-testid="stHorizontalBlock"]:has(.brand-text) button:not([key*="theme"]):hover {{
-        background: var(--hover) !important;
-        color: var(--text) !important;
-    }}
-    /* Theme toggle button in nav */
-    div[data-testid="stHorizontalBlock"]:has(.brand-text) button[key*="theme"] {{
-        background: var(--card) !important;
-        border: 1px solid var(--card-border) !important;
-        border-radius: 12px !important;
-        font-size: 1.05rem !important;
-        padding: 0.2rem 0.4rem !important;
-        min-height: unset !important;
-        line-height: 1 !important;
-        transition: all 0.2s !important;
-    }}
-    div[data-testid="stHorizontalBlock"]:has(.brand-text) button[key*="theme"]:hover {{
-        background: var(--hover) !important;
-        box-shadow: 0 0 12px var(--glow) !important;
-    }}
-    /* Active nav pills via CSS */
-    .nav-btn.active {{
-        text-align: center; padding: 0.4rem 0; border-radius: 14px;
-        background: linear-gradient(135deg, var(--accent), var(--accent2));
-        color: #fff; font-weight: 600; font-size: 0.82rem;
-        box-shadow: 0 4px 16px var(--glow);
     }}
 
     /* ── Glass KPI Cards ── */
@@ -620,26 +594,36 @@ for key in ["messages", "pinned_charts", "uploaded_tables", "exploration_results
 # ── Inject theme CSS ──
 st.markdown(theme_css(), unsafe_allow_html=True)
 
-# ── Top Navbar ──
+# ── Top Navbar (pure HTML, no Streamlit buttons) ──
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
-nav_pages = ["💬 Chat", "📁 Data", "📊 Dashboard"]
-nav_keys = ["Chat", "Data", "Dashboard"]
-ncol = st.columns([1.8, 1, 1, 1, 0.5], gap="small")
-with ncol[0]:
-    st.markdown('<span class="brand-text">⚡ DataNova</span>', unsafe_allow_html=True)
-for i, (label, key) in enumerate(zip(nav_pages, nav_keys)):
-    with ncol[i + 1]:
-        is_active = st.session_state.active_page == key
-        if is_active:
-            st.markdown(f'<div class="nav-btn active">{label}</div>', unsafe_allow_html=True)
-        else:
-            if st.button(label, key=f"nav_{key}", use_container_width=True):
-                st.session_state.active_page = key
-                st.rerun()
-with ncol[-1]:
-    if st.button(theme_icon, key="nav_theme", help="Toggle dark/light"):
-        st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
-        st.rerun()
+active_page = st.session_state.active_page
+nav_items = [
+    ("💬 Chat", "Chat"),
+    ("📁 Data", "Data"),
+    ("📊 Dashboard", "Dashboard"),
+]
+links_html = ""
+for label, key in nav_items:
+    cls = ' class="active"' if active_page == key else ''
+    links_html += f'<a href="?page={key}"{cls}>{label}</a>'
+st.markdown(f'''
+<div id="top-nav-wrapper">
+  <span class="brand-text">⚡ DataNova</span>
+  {links_html}
+  <a href="?theme=toggle" class="theme-btn">{theme_icon}</a>
+</div>
+''', unsafe_allow_html=True)
+
+# Handle query params for navigation
+params = st.query_params
+if "page" in params:
+    st.session_state.active_page = params["page"]
+    st.query_params.clear()
+    st.rerun()
+if "theme" in params:
+    st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
+    st.query_params.clear()
+    st.rerun()
 
 # ── Helper functions ──
 def auto_chart(df: pd.DataFrame):
