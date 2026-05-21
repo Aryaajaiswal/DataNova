@@ -26,20 +26,20 @@ if "theme" not in st.session_state:
 
 # ── CSS Variables + Theming ──
 LIGHT_VARS = {
-    "bg": "linear-gradient(135deg, #f8f9ff 0%, #eef2ff 50%, #f0f0ff 100%)",
+    "bg": "linear-gradient(135deg, #f0f4ff 0%, #e8eeff 50%, #f5f0ff 100%)",
     "bg2": "#ffffff",
-    "card": "rgba(255,255,255,0.75)",
-    "card-border": "rgba(99,102,241,0.15)",
-    "sidebar": "rgba(255,255,255,0.9)",
+    "card": "rgba(255,255,255,0.95)",
+    "card-border": "rgba(99,102,241,0.2)",
+    "sidebar": "rgba(255,255,255,0.98)",
     "text": "#0f172a",
-    "text2": "#64748b",
-    "accent": "#6366f1",
-    "accent2": "#8b5cf6",
-    "hover": "rgba(99,102,241,0.08)",
-    "shadow": "rgba(99,102,241,0.1)",
-    "input-bg": "rgba(255,255,255,0.7)",
-    "input-border": "rgba(99,102,241,0.2)",
-    "glow": "rgba(99,102,241,0.25)",
+    "text2": "#475569",
+    "accent": "#4f46e5",
+    "accent2": "#7c3aed",
+    "hover": "rgba(79,70,229,0.1)",
+    "shadow": "rgba(79,70,229,0.12)",
+    "input-bg": "#ffffff",
+    "input-border": "rgba(79,70,229,0.25)",
+    "glow": "rgba(79,70,229,0.2)",
 }
 DARK_VARS = {
     "bg": "linear-gradient(135deg, #0f172a 0%, #111827 40%, #1e1b4b 100%)",
@@ -611,6 +611,19 @@ def get_theme_css(theme):
     }}
     div[data-baseweb="tab-highlight"] {{
         display: none !important;
+    }}
+
+    /* ── Force theme-aware backgrounds on all containers ── */
+    .stApp, .stApp > div, div[data-testid="stAppViewContainer"],
+    div[data-testid="stHeader"], div[data-testid="stToolbar"],
+    section[data-testid="stSidebar"] > div:first-child,
+    div[data-testid="stMainBlockContainer"] {{
+        background: var(--bg) !important;
+    }}
+    div[data-testid="stVerticalBlock"] > div,
+    div[data-testid="stHorizontalBlock"],
+    div[data-testid="column"] > div {{
+        background: transparent !important;
     }}
 
     /* ── Compact spacing ── */
