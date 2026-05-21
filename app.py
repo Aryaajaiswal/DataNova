@@ -749,6 +749,28 @@ def get_theme_css(theme):
         padding: 0.3rem 0 !important;
     }}
 
+    /* ── Custom tab buttons ── */
+    div[data-testid="column"] button[kind="primary"] {{
+        background: linear-gradient(135deg, var(--accent), var(--accent2)) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 14px !important;
+        font-weight: 600 !important;
+        box-shadow: 0 4px 16px var(--glow) !important;
+    }}
+    div[data-testid="column"] button[kind="secondary"] {{
+        background: var(--card) !important;
+        color: var(--text2) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 14px !important;
+        font-weight: 500 !important;
+        backdrop-filter: blur(8px) !important;
+    }}
+    div[data-testid="column"] button[kind="secondary"]:hover {{
+        border-color: var(--accent) !important;
+        color: var(--text) !important;
+    }}
+
     /* ── Text inputs glass ── */
     input[type="text"], input[type="url"], input[type="search"], textarea:not([data-testid="stChatInput"] textarea) {{
         background: var(--input-bg) !important;
@@ -797,6 +819,7 @@ defaults = {
     "selected_dashboard": None,
     "cached_questions": {},
     "sidebar_open": True,
+    "selected_tab": "💬 Chat",
 }
 for k, v in defaults.items():
     st.session_state.setdefault(k, v)
@@ -1119,14 +1142,23 @@ if not has_data:
         c1, c2 = st.columns(2, gap="medium")
         with c1:
             if st.button("📁 Upload Data", width='stretch', type="primary", key="hero_upload"):
-                pass
+                st.session_state.selected_tab = "📁 Data"
+                st.rerun()
         with c2:
             if st.button("✨ Try Demo Dataset", width='stretch', key="hero_demo"):
                 st.session_state["load_demo"] = True
                 st.rerun()
 
-# ── Tabs (instant, no rerun) ──
-tab_chat, tab_data, tab_dash = st.tabs(["💬 Chat", "📁 Data", "📊 Dashboard"])
+# ── Custom Tabs (programmatic switching) ──
+tab_labels = ["💬 Chat", "📁 Data", "📊 Dashboard"]
+tab_cols = st.columns(3, gap="small")
+for i, label in enumerate(tab_labels):
+    with tab_cols[i]:
+        active = st.session_state.selected_tab == label
+        btn_style = "primary" if active else "secondary"
+        if st.button(label, key=f"tab_btn_{i}", type=btn_style, use_container_width=True):
+            st.session_state.selected_tab = label
+            st.rerun()
 
 # ── Feature cards (landing state) ──
 if not has_data:
@@ -1154,7 +1186,7 @@ if not has_data:
 # ════════════════════════════════════════════════════
 # TAB: CHAT
 # ════════════════════════════════════════════════════
-with tab_chat:
+if st.session_state.selected_tab == "💬 Chat":
     chat_col, result_col = st.columns([0.55, 1], gap="small")
 
     with chat_col:
@@ -1333,7 +1365,7 @@ with tab_chat:
 # ════════════════════════════════════════════════════
 # TAB: DATA
 # ════════════════════════════════════════════════════
-with tab_data:
+if st.session_state.selected_tab == "📁 Data":
     # ── Auto-load demo dataset ──
     if st.session_state.pop("load_demo", False):
         demo_path = "sample_restaurant_data.csv"
@@ -1510,7 +1542,7 @@ with tab_data:
 # ════════════════════════════════════════════════════
 # TAB: DASHBOARD
 # ════════════════════════════════════════════════════
-with tab_dash:
+if st.session_state.selected_tab == "📊 Dashboard":
     has_auto = bool(st.session_state.auto_dashboards)
     has_pinned = bool(st.session_state.pinned_charts)
 
