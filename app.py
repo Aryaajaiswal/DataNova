@@ -204,37 +204,8 @@ def get_theme_css(theme):
         border-color: var(--accent) !important;
         box-shadow: 0 0 16px var(--glow) !important;
     }}
-    /* ── Navbar columns glass style ── */
-    div[data-testid="column"]:has(> div[style*="Syne"]) + div[data-testid="column"] {{
-        background: var(--card);
-        backdrop-filter: blur(24px) saturate(1.4);
-        -webkit-backdrop-filter: blur(24px) saturate(1.4);
-        border: 1px solid var(--card-border);
-        border-radius: 20px;
-        padding: 0.2rem 0.5rem 0.2rem 0;
-        box-shadow: 0 4px 24px var(--shadow);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-left: 0 !important;
-        transition: box-shadow 0.3s ease;
-    }}
-    div[data-testid="column"]:has(> div[style*="Syne"]) + div[data-testid="column"]:hover {{
-        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
-    }}
-    div[data-testid="column"]:has(> div[style*="Syne"]) + div[data-testid="column"] button {{
-        font-size: 1.05rem !important;
-        padding: 0.15rem 0.4rem !important;
-        border-radius: 14px !important;
-        border: 1px solid var(--card-border) !important;
-        background: var(--input-bg) !important;
-        min-width: unset !important;
-        width: auto !important;
-        box-shadow: none !important;
-        line-height: 1.3 !important;
-    }}
-    /* ── Hamburger button ── */
-    div[data-testid="column"]:first-child:has(button) {{
+    /* ── Top Bar wrappers ── */
+    .topbar-hamburger, .topbar-theme {{
         background: var(--card);
         backdrop-filter: blur(24px) saturate(1.4);
         -webkit-backdrop-filter: blur(24px) saturate(1.4);
@@ -245,14 +216,13 @@ def get_theme_css(theme):
         display: flex;
         align-items: center;
         justify-content: center;
-        margin-right: 0 !important;
         transition: box-shadow 0.3s ease;
     }}
-    div[data-testid="column"]:first-child:has(button):hover {{
+    .topbar-hamburger:hover, .topbar-theme:hover {{
         box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
     }}
-    div[data-testid="column"]:first-child button {{
-        font-size: 1.15rem !important;
+    .topbar-hamburger button, .topbar-theme button {{
+        font-size: 1.05rem !important;
         padding: 0.15rem 0.4rem !important;
         border-radius: 14px !important;
         border: 1px solid var(--card-border) !important;
@@ -264,27 +234,15 @@ def get_theme_css(theme):
         color: var(--text) !important;
         transition: all 0.2s !important;
     }}
-    div[data-testid="column"]:first-child button:hover {{
+    .topbar-hamburger button:hover, .topbar-theme button:hover {{
         border-color: var(--accent) !important;
         box-shadow: 0 0 16px var(--glow) !important;
     }}
-    /* ── Navbar brand column ── */
-    div[data-testid="column"]:has(> div[style*="Syne"]) {{
-        background: var(--card);
-        backdrop-filter: blur(24px) saturate(1.4);
-        -webkit-backdrop-filter: blur(24px) saturate(1.4);
-        border: 1px solid var(--card-border);
-        border-radius: 20px;
-        padding: 0.3rem 0 0.3rem 0.2rem;
-        box-shadow: 0 4px 24px var(--shadow);
-        transition: box-shadow 0.3s ease;
-        overflow: visible !important;
-        min-width: fit-content !important;
+    .topbar-brand {{
+        padding: 0.3rem 0 0.3rem 0.5rem;
+        overflow: visible;
+        min-width: fit-content;
     }}
-    div[data-testid="column"]:has(> div[style*="Syne"]):hover {{
-        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
-    }}
-    /* Re-open arrow when sidebar is collapsed */
     .stSidebarCollapsedButton {{
         font-size: 1.5rem !important;
         background: var(--card) !important;
@@ -857,15 +815,19 @@ st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
 top1, top2, top3 = st.columns([1, 8, 1], gap="small")
 with top1:
+    st.markdown('<div class="topbar-hamburger">', unsafe_allow_html=True)
     if st.button("☰", key="sidebar_toggle_top", help="Toggle sidebar"):
         st.session_state.sidebar_open = not st.session_state.sidebar_open
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 with top2:
-    st.markdown('<div style="font-family:Syne,sans-serif;font-weight:800;font-size:1.4rem;padding:0.15rem 0;background:linear-gradient(90deg,var(--accent),var(--accent2),#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">DataNova</div>', unsafe_allow_html=True)
+    st.markdown('<div class="topbar-brand"><span style="font-family:Syne,sans-serif;font-weight:800;font-size:1.4rem;background:linear-gradient(90deg,var(--accent),var(--accent2),#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;">DataNova</span></div>', unsafe_allow_html=True)
 with top3:
+    st.markdown('<div class="topbar-theme">', unsafe_allow_html=True)
     if st.button(theme_icon, key="theme_toggle_top", help="Toggle theme"):
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
         st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Sidebar visibility CSS ──
 if not st.session_state.sidebar_open:
@@ -891,7 +853,10 @@ def auto_chart(df: pd.DataFrame):
     if len(num_cols) >= 2:
         return px.line(df, x=num_cols[0], y=num_cols[1], color_discrete_sequence=["#818cf8"])
     if len(cat_cols) >= 2:
-        return px.pie(df, names=cat_cols[0], color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399"])
+        c = cat_cols[0]
+        if len(df[c].unique()) > 6:
+            return px.bar(df, x=c, y=cat_cols[1] if len(cat_cols) > 1 else None, color_discrete_sequence=["#818cf8"])
+        return px.pie(df, names=c, color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399"])
     return None
 
 def _apply_chart_layout(fig):
@@ -1110,7 +1075,11 @@ with st.sidebar:
             st.markdown('<p class="section-title" style="font-size:0.85rem;">💡 Questions</p>', unsafe_allow_html=True)
             if db_url_input not in st.session_state["cached_questions"]:
                 with st.spinner("Generating..."):
-                    qs = generate_sample_questions(db_url_input)
+                    try:
+                        qs = generate_sample_questions(db_url_input)
+                    except Exception as e:
+                        st.warning(f"Could not generate questions: {e}")
+                        qs = ["Show me the data", "What are the top trends?", "Summarize insights"]
                     st.session_state["cached_questions"][db_url_input] = qs
             for qi, q in enumerate(st.session_state["cached_questions"].get(db_url_input, [])[:5]):
                 if st.button(q, width='stretch', key=f"sidebar_sq_{qi}"):
@@ -1294,10 +1263,13 @@ if st.session_state.selected_tab == "💬 Chat":
                             last_msg["pending_execution"] = False
                             with st.spinner("Executing..."):
                                 t0 = time.time()
-                                if is_python:
-                                    exec_res = run_execution(sql="", db_url=db_url_input, is_python_task=True, python_code=edited_code)
-                                else:
-                                    exec_res = run_execution(sql=edited_code, db_url=db_url_input)
+                                try:
+                                    if is_python:
+                                        exec_res = run_execution(sql="", db_url=db_url_input, is_python_task=True, python_code=edited_code)
+                                    else:
+                                        exec_res = run_execution(sql=edited_code, db_url=db_url_input)
+                                except Exception as e:
+                                    exec_res = {"final_result": None, "chart_spec": None, "error_message": f"Execution crashed: {str(e)}"}
                             last_msg["df"] = exec_res.get("final_result")
                             last_msg["chart_spec"] = exec_res.get("chart_spec")
                             last_msg["error"] = exec_res.get("error_message")
@@ -1421,14 +1393,22 @@ if st.session_state.selected_tab == "📁 Data":
                 register_upload(tn, demo_path, len(df_demo))
                 st.success(f"Demo dataset loaded: {len(df_demo)} rows")
                 with st.spinner("Analyzing data insights..."):
-                    insights = analyze_data_insights(df_demo, tn, db_url_input)
+                    try:
+                        insights = analyze_data_insights(df_demo, tn, db_url_input)
+                    except Exception as e:
+                        st.warning(f"Insight generation failed: {e}")
+                        insights = ["Data loaded successfully. Ask questions in the Chat tab."]
                 with st.expander("💡 Data Insights", expanded=True):
                     for ins in insights:
                         st.markdown(ins)
                 get_cached_tables.clear()
                 get_cached_schema.clear()
                 st.session_state["cached_questions"].pop(db_url_input, None)
-                dash = auto_generate_dashboard(tn, db_url_input)
+                try:
+                    dash = auto_generate_dashboard(tn, db_url_input)
+                except Exception as e:
+                    st.warning(f"Auto-dashboard failed: {e}")
+                    dash = None
                 st.session_state.auto_dashboards[tn] = dash
                 st.session_state.selected_dashboard = tn
                 st.rerun()
@@ -1474,15 +1454,22 @@ if st.session_state.selected_tab == "📁 Data":
                             register_upload(tn, url, len(df_preview))
                             st.success(f"Table '{tn}' created!")
                             with st.spinner("Analyzing data insights..."):
-                                insights = analyze_data_insights(df_preview, tn, db_url_input)
+                                try:
+                                    insights = analyze_data_insights(df_preview, tn, db_url_input)
+                                except Exception as e:
+                                    st.warning(f"Insights failed: {e}")
+                                    insights = ["Data loaded."]
                             with st.expander("💡 Data Insights", expanded=True):
                                 for ins in insights:
                                     st.markdown(ins)
                             get_cached_tables.clear()
                             get_cached_schema.clear()
                             st.session_state["cached_questions"].pop(db_url_input, None)
-                            dash = auto_generate_dashboard(tn, db_url_input)
-                            st.session_state.auto_dashboards[tn] = dash
+                            try:
+                                dash = auto_generate_dashboard(tn, db_url_input)
+                            except Exception as e:
+                                st.warning(f"Auto-dashboard failed: {e}")
+                                dash = None
                             st.session_state.selected_dashboard = tn
                             st.rerun()
             except Exception as e:
@@ -1513,14 +1500,22 @@ if st.session_state.selected_tab == "📁 Data":
                     register_upload(ftn, uploaded_file.name, len(df_preview))
                     st.success(f"Table '{ftn}' created!")
                     with st.spinner("Analyzing data insights..."):
-                        insights = analyze_data_insights(df_preview, ftn, db_url_input)
+                        try:
+                            insights = analyze_data_insights(df_preview, ftn, db_url_input)
+                        except Exception as e:
+                            st.warning(f"Insights failed: {e}")
+                            insights = ["Data loaded."]
                     with st.expander("💡 Data Insights", expanded=True):
                         for ins in insights:
                             st.markdown(ins)
                     get_cached_tables.clear()
                     get_cached_schema.clear()
                     st.session_state["cached_questions"].pop(db_url_input, None)
-                    dash = auto_generate_dashboard(ftn, db_url_input)
+                    try:
+                        dash = auto_generate_dashboard(ftn, db_url_input)
+                    except Exception as e:
+                        st.warning(f"Auto-dashboard failed: {e}")
+                        dash = None
                     st.session_state.auto_dashboards[ftn] = dash
                     st.session_state.selected_dashboard = ftn
                     st.rerun()
