@@ -65,7 +65,7 @@ User Query
 git clone https://github.com/Aryaajaiswal/DataNova.git
 cd DataNova
 pip install -r requirements.txt
-echo "GROQ_API_KEY=gsk_..." > .env
+echo "GROQ_API_KEY=your_api_key_here" > .env
 streamlit run app.py
 ```
 
