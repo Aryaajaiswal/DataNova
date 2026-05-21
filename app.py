@@ -259,8 +259,48 @@ def get_theme_css(theme):
     #top-nav-wrapper .theme-btn:hover {{
         box-shadow: 0 0 12px var(--glow);
     }}
-    #top-nav-wrapper .theme-btn:hover {{
-        box-shadow: 0 0 12px var(--glow);
+    /* Navbar row styled as glass card */
+    div[data-testid="column"]:has(> div.brand-text) {{
+        background: var(--card);
+        backdrop-filter: blur(24px) saturate(1.4);
+        -webkit-backdrop-filter: blur(24px) saturate(1.4);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 0.3rem 0.5rem 0.3rem 1rem;
+        box-shadow: 0 4px 24px var(--shadow);
+        transition: box-shadow 0.3s ease;
+    }}
+    div[data-testid="column"]:has(> div.brand-text):hover {{
+        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
+    }}
+    /* Theme toggle button inside the navbar row */
+    div[data-testid="column"]:has(> div.brand-text) + div[data-testid="column"] {{
+        background: var(--card);
+        backdrop-filter: blur(24px) saturate(1.4);
+        -webkit-backdrop-filter: blur(24px) saturate(1.4);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 0.2rem 0.5rem 0.2rem 0;
+        box-shadow: 0 4px 24px var(--shadow);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 0 !important;
+        transition: box-shadow 0.3s ease;
+    }}
+    div[data-testid="column"]:has(> div.brand-text) + div[data-testid="column"]:hover {{
+        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
+    }}
+    div[data-testid="column"]:has(> div.brand-text) + div[data-testid="column"] button {{
+        font-size: 1.05rem !important;
+        padding: 0.15rem 0.4rem !important;
+        border-radius: 14px !important;
+        border: 1px solid var(--card-border) !important;
+        background: var(--input-bg) !important;
+        min-width: unset !important;
+        width: auto !important;
+        box-shadow: none !important;
+        line-height: 1.3 !important;
     }}
     @keyframes gradient-shift {{
         0% {{ background-position: 0% center; }}
@@ -744,16 +784,10 @@ st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
 
 # ── Top Navbar ──
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
-st.markdown(f'''
-<div id="top-nav-wrapper">
-  <span class="brand-text"> DataNova</span>
-  <span style="flex:1"></span>
-</div>
-''', unsafe_allow_html=True)
-
-# Theme toggle as inline Streamlit button (reliable, no JS redirect)
-nav_spacer, nav_theme = st.columns([20, 1])
-with nav_theme:
+nb1, nb2, nb3 = st.columns([3, 16, 1], gap="small")
+with nb1:
+    st.markdown('<div class="brand-text" style="font-family:Syne,sans-serif;font-weight:800;font-size:1.4rem;background:linear-gradient(90deg,var(--accent),var(--accent2),#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;"> DataNova</div>', unsafe_allow_html=True)
+with nb3:
     if st.button(theme_icon, key="theme_toggle_nav", help="Toggle theme"):
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
         st.rerun()
