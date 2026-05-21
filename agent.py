@@ -350,6 +350,10 @@ def generate_chart_spec(state: GraphState) -> GraphState:
     Given the following dataframe columns, suggest the best Plotly chart type to visualize this data.
     Columns: {', '.join(col_info)}
     
+    RULES:
+    - NEVER use "pie" if the category column has more than 6 unique values — use "bar" instead.
+    - If you choose "pie", ensure the values column (y) is specified.
+    
     Output ONLY a valid JSON object with:
     "type": "bar", "line", "pie", or "scatter"
     "x": "column_name_for_x_axis"

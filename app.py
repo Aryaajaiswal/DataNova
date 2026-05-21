@@ -225,32 +225,25 @@ def get_theme_css(theme):
     #top-nav-wrapper {{
         display: flex; align-items: center; gap: 0.5rem;
         background: var(--card);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
+        backdrop-filter: blur(24px) saturate(1.4);
+        -webkit-backdrop-filter: blur(24px) saturate(1.4);
         border: 1px solid var(--card-border);
         border-radius: 20px;
         padding: 0.3rem 0.5rem 0.3rem 1rem;
         margin-bottom: 0.5rem;
         box-shadow: 0 4px 24px var(--shadow);
+        transition: box-shadow 0.3s ease;
     }}
-    #top-nav-wrapper .brand-text {{
-        font-family: 'Syne', sans-serif; font-weight: 800; font-size: 1.4rem;
-        letter-spacing: 0.02em;
-        background: linear-gradient(90deg, var(--accent), var(--accent2), #e879f9);
-        background-size: 200% auto;
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-        background-clip: text;
-        animation: gradient-shift 3s ease infinite;
-        filter: drop-shadow(0 0 12px var(--glow));
-        margin-right: 0.75rem;
+    #top-nav-wrapper:hover {{
+        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
     }}
     #top-nav-wrapper a {{
         font-family: 'Inter', sans-serif; font-size: 0.82rem; font-weight: 500;
         color: var(--text2); text-decoration: none;
         padding: 0.35rem 0.7rem; border-radius: 14px;
-        transition: all 0.25s ease;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }}
-    #top-nav-wrapper a:hover {{ background: var(--hover); color: var(--text); }}
+    #top-nav-wrapper a:hover {{ background: var(--hover); color: var(--text); transform: translateY(-1px); }}
     #top-nav-wrapper a.active {{
         background: linear-gradient(135deg, var(--accent), var(--accent2));
         color: #fff !important;
@@ -286,6 +279,35 @@ def get_theme_css(theme):
     }}
     .kpi-card:hover {{
         transform: translateY(-4px);
+        border-color: var(--accent);
+        box-shadow: 0 12px 40px var(--shadow);
+    }}
+    .kpi-card .kpi-value {{
+        transition: all 0.3s ease;
+    }}
+    .kpi-card:hover .kpi-value {{
+        transform: scale(1.02);
+    }}
+    /* Chart card micro-animation */
+    .chart-card {{
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }}
+    .chart-card:hover {{
+        transform: translateY(-2px);
+    }}
+    /* Executive Summary typography */
+    .exec-summary {{
+        line-height: 1.8 !important;
+        font-size: 0.92rem !important;
+        color: var(--text2) !important;
+    }}
+    .exec-summary strong {{
+        color: var(--text) !important;
+    }}
+    .exec-summary .highlight {{
+        color: var(--accent) !important;
+        font-weight: 600;
+    }}
         box-shadow: 0 12px 40px var(--shadow), 0 0 20px var(--glow);
         border-color: var(--accent);
     }}
@@ -785,15 +807,21 @@ def render_dynamic_chart(df: pd.DataFrame, spec, key=None):
         ct = spec.get("type", "").lower()
         xc, yc = spec.get("x"), spec.get("y")
         try:
+            if ct == "pie" and xc:
+                if yc and len(df[xc].unique()) > 6:
+                    ct, yc, xc = "bar", xc, yc
+                else:
+                    fig = px.pie(df, names=xc, values=yc if yc else None,
+                                 color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399", "#22d3ee"])
             if ct == "bar" and xc and yc:
-                fig = px.bar(df, x=xc, y=yc, color_discrete_sequence=["#818cf8"])
+                fig = px.bar(df, x=xc, y=yc, color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9"])
             elif ct == "line" and xc and yc:
-                fig = px.line(df, x=xc, y=yc, color_discrete_sequence=["#818cf8"])
+                fig = px.line(df, x=xc, y=yc, color_discrete_sequence=["#818cf8", "#22d3ee"])
             elif ct == "scatter" and xc and yc:
                 fig = px.scatter(df, x=xc, y=yc, color_discrete_sequence=["#818cf8"])
             elif ct == "pie" and xc:
                 fig = px.pie(df, names=xc, values=yc if yc else None,
-                             color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399"])
+                             color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399", "#22d3ee"])
         except Exception:
             fig = auto_chart(df)
     if fig is None:
@@ -1458,7 +1486,7 @@ with tab_dash:
         with ex:
             if dash.get("summary"):
                 with st.expander("📝 Executive Summary", expanded=True):
-                    st.markdown(f'<div style="font-size:0.85rem;color:var(--text2);line-height:1.6;">{dash["summary"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="exec-summary">{dash["summary"]}</div>', unsafe_allow_html=True)
 
         with sq:
             if dash.get("suggested_questions"):
