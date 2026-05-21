@@ -744,7 +744,9 @@ def get_theme_css(theme):
     }}
 
     /* ── Compact spacing ── */
-    .stApp header {{ display: none; }}
+    header[data-testid="stHeader"] {{ background: transparent !important; }}
+    #MainMenu {{ visibility: hidden; }}
+    footer {{ visibility: hidden; }}
     .main > div {{ padding-top: 0 !important; padding-bottom: 0 !important; }}
     div.block-container {{
         padding-top: 0.25rem !important;
