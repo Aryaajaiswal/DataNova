@@ -166,8 +166,8 @@ def theme_css():
     }}
 
     /* ── Top Nav ── */
-    /* Glass nav bar row */
-    div[data-testid="stHorizontalBlock"]:has(> div > .brand-text) {{
+    /* Glass nav bar row — matches the st.horizontalBlock containing .brand-text */
+    div[data-testid="stHorizontalBlock"]:has(.brand-text) {{
         background: var(--card) !important;
         backdrop-filter: blur(20px) !important;
         -webkit-backdrop-filter: blur(20px) !important;
@@ -177,11 +177,12 @@ def theme_css():
         margin-bottom: 0.5rem !important;
         box-shadow: 0 4px 24px var(--shadow) !important;
     }}
-    div[data-testid="stHorizontalBlock"]:has(> div > .brand-text) > div {{
-        padding: 0 !important;
+    div[data-testid="stHorizontalBlock"]:has(.brand-text) > div {{
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
     }}
-    /* Nav buttons - clean transparent style */
-    div[data-testid="stHorizontalBlock"]:has(> div > .brand-text) button {{
+    /* Nav buttons inside the nav row */
+    div[data-testid="stHorizontalBlock"]:has(.brand-text) button {{
         background: transparent !important;
         border: none !important;
         color: var(--text2) !important;
@@ -193,7 +194,7 @@ def theme_css():
         min-height: unset !important;
         line-height: 1.4 !important;
     }}
-    div[data-testid="stHorizontalBlock"]:has(> div > .brand-text) button:hover {{
+    div[data-testid="stHorizontalBlock"]:has(.brand-text) button:hover {{
         background: var(--hover) !important;
         color: var(--text) !important;
     }}
@@ -363,10 +364,6 @@ def theme_css():
         transform: translateY(-2px) !important;
         box-shadow: 0 8px 28px var(--glow) !important;
     }}
-    button:not([kind]):hover {{
-        border-color: var(--accent) !important;
-        color: var(--accent) !important;
-    }}
 
     /* ── Tags ── */
     .tag {{
@@ -501,19 +498,24 @@ def theme_css():
     }}
 
     /* ── File uploader glass ── */
-    .stFileUploader > div > div {{
+    section[data-testid="stFileUploader"] {{
         background: var(--card) !important;
         border: 1px dashed var(--card-border) !important;
         border-radius: 20px !important;
         backdrop-filter: blur(8px) !important;
-        padding: 1.5rem !important;
+        padding: 0.5rem !important;
         transition: all 0.25s ease !important;
     }}
-    .stFileUploader > div > div:hover {{
+    section[data-testid="stFileUploader"]:hover {{
         border-color: var(--accent) !important;
         box-shadow: 0 0 20px var(--glow) !important;
     }}
-    .stFileUploader small {{ color: var(--text2) !important; }}
+    section[data-testid="stFileUploader"] button {{
+        background: linear-gradient(135deg, var(--accent), var(--accent2)) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 12px !important;
+    }}
 
     /* ── DataFrame ── */
     div[data-testid="stDataFrame"] {{
@@ -597,7 +599,7 @@ st.markdown(theme_css(), unsafe_allow_html=True)
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
 nav_pages = ["💬 Chat", "📁 Data", "📊 Dashboard"]
 nav_keys = ["Chat", "Data", "Dashboard"]
-ncol = st.columns([1.8, 1, 1, 1, 1.2, 0.6], gap="small", vertical_alignment="center")
+ncol = st.columns([1.8, 1, 1, 1, 0.5], gap="small")
 with ncol[0]:
     st.markdown('<span class="brand-text">⚡ DataNova</span>', unsafe_allow_html=True)
 for i, (label, key) in enumerate(zip(nav_pages, nav_keys)):
@@ -609,10 +611,11 @@ for i, (label, key) in enumerate(zip(nav_pages, nav_keys)):
             if st.button(label, key=f"nav_{key}", use_container_width=True):
                 st.session_state.active_page = key
                 st.rerun()
-with ncol[-2]:
-    st.markdown("")  # spacer
 with ncol[-1]:
-    if st.button(theme_icon, key="nav_theme", help="Toggle dark/light"):
+    th = st.empty()
+    with th.container():
+        st.markdown(f'<div style="text-align:center;">{theme_icon}</div>', unsafe_allow_html=True)
+    if st.button(" ", key="nav_theme", help="Toggle dark/light"):
         st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
         st.rerun()
 
@@ -631,6 +634,7 @@ def auto_chart(df: pd.DataFrame):
     return None
 
 def _apply_chart_layout(fig):
+    chart_bg = "rgba(15,23,42,0.3)" if st.session_state.theme == "dark" else "rgba(248,250,255,0.5)"
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor=st.session_state.get("_chart_bg", "rgba(15,23,42,0.3)"),
