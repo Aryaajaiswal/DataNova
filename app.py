@@ -129,6 +129,8 @@ def theme_css():
         backdrop-filter: blur(20px) !important;
         padding: 0.75rem 0.75rem 2rem 0.75rem !important;
         gap: 0 !important;
+        overflow-y: auto !important;
+        height: 100vh !important;
     }}
     section[data-testid="stSidebar"] * {{
         color: var(--text) !important;
