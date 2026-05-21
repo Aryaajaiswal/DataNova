@@ -28,45 +28,44 @@ if "active_page" not in st.session_state:
 
 # ── CSS Variables + Theming ──
 LIGHT_VARS = {
-    "bg": "#f8f9ff",
+    "bg": "linear-gradient(135deg, #f8f9ff 0%, #eef2ff 50%, #f0f0ff 100%)",
     "bg2": "#ffffff",
-    "card": "#ffffff",
-    "card-border": "rgba(99,102,241,0.12)",
-    "sidebar": "#ffffff",
-    "text": "#1a1a2e",
-    "text2": "#6b7280",
+    "card": "rgba(255,255,255,0.75)",
+    "card-border": "rgba(99,102,241,0.15)",
+    "sidebar": "rgba(255,255,255,0.9)",
+    "text": "#0f172a",
+    "text2": "#64748b",
     "accent": "#6366f1",
     "accent2": "#8b5cf6",
     "hover": "rgba(99,102,241,0.08)",
-    "shadow": "rgba(0,0,0,0.06)",
-    "input-bg": "#ffffff",
-    "input-border": "#e5e7eb",
-    "sql-bg": "linear-gradient(135deg, #f0f4ff 0%, #f8f9ff 100%)",
-    "chart-bg": "rgba(248,250,255,0.5)",
+    "shadow": "rgba(99,102,241,0.1)",
+    "input-bg": "rgba(255,255,255,0.7)",
+    "input-border": "rgba(99,102,241,0.2)",
+    "glow": "rgba(99,102,241,0.25)",
 }
 DARK_VARS = {
-    "bg": "#0b1120",
+    "bg": "linear-gradient(135deg, #0f172a 0%, #111827 40%, #1e1b4b 100%)",
     "bg2": "#111827",
-    "card": "#1a2236",
-    "card-border": "rgba(139,92,246,0.15)",
-    "sidebar": "#0f1729",
+    "card": "rgba(255,255,255,0.06)",
+    "card-border": "rgba(255,255,255,0.08)",
+    "sidebar": "rgba(15,23,42,0.95)",
     "text": "#f1f5f9",
     "text2": "#94a3b8",
     "accent": "#818cf8",
     "accent2": "#a78bfa",
-    "hover": "rgba(129,140,248,0.1)",
-    "shadow": "rgba(0,0,0,0.3)",
-    "input-bg": "#1e293b",
-    "input-border": "#334155",
-    "sql-bg": "linear-gradient(135deg, #1e293b 0%, #111827 100%)",
-    "chart-bg": "rgba(15,23,42,0.5)",
+    "hover": "rgba(129,140,248,0.12)",
+    "shadow": "rgba(0,0,0,0.4)",
+    "input-bg": "rgba(255,255,255,0.06)",
+    "input-border": "rgba(255,255,255,0.12)",
+    "glow": "rgba(139,92,246,0.35)",
 }
 
 def theme_css():
     v = DARK_VARS if st.session_state.theme == "dark" else LIGHT_VARS
-    accent_rgb = "129,140,248" if st.session_state.theme == "dark" else "99,102,241"
     return f"""
     <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap');
+
     :root {{
         --bg: {v["bg"]};
         --bg2: {v["bg2"]};
@@ -81,25 +80,56 @@ def theme_css():
         --shadow: {v["shadow"]};
         --input-bg: {v["input-bg"]};
         --input-border: {v["input-border"]};
-        --sql-bg: {v["sql-bg"]};
-        --chart-bg: {v["chart-bg"]};
-        --accent-rgb: {accent_rgb};
+        --glow: {v["glow"]};
     }}
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Syne:wght@400;600;800&family=Space+Mono:wght@400;700&display=swap');
+
     * {{ box-sizing: border-box; }}
-    html, body, [class*="css"] {{
-        font-family: 'Inter', -apple-system, sans-serif;
-        background: var(--bg);
+
+    html, body, .stApp {{
+        background: var(--bg) !important;
         color: var(--text);
     }}
-    ::-webkit-scrollbar {{ width: 6px; height: 6px; }}
+    html, body, [class*="css"] {{
+        font-family: 'Inter', -apple-system, sans-serif;
+        color: var(--text);
+    }}
+
+    /* ── Soft grid background ── */
+    body::before {{
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+        background-size: 40px 40px;
+        pointer-events: none;
+        z-index: 0;
+    }}
+    .stApp > div {{ position: relative; z-index: 1; }}
+
+    ::-webkit-scrollbar {{ width: 5px; height: 5px; }}
     ::-webkit-scrollbar-track {{ background: transparent; }}
     ::-webkit-scrollbar-thumb {{ background: var(--accent); border-radius: 3px; }}
 
-    /* Sidebar */
+    /* ── Glass card base ── */
+    .glass-card {{
+        background: var(--card);
+        backdrop-filter: blur(18px);
+        -webkit-backdrop-filter: blur(18px);
+        border: 1px solid var(--card-border);
+        border-radius: 24px;
+        box-shadow: 0 8px 32px var(--shadow);
+        padding: 1.25rem;
+        transition: all 0.3s ease;
+    }}
+
+    /* ── Sidebar ── */
     section[data-testid="stSidebar"] {{
         background: var(--sidebar) !important;
         border-right: 1px solid var(--card-border) !important;
+        backdrop-filter: blur(20px) !important;
+        padding-top: 0.75rem !important;
     }}
     section[data-testid="stSidebar"] * {{ color: var(--text) !important; }}
     section[data-testid="stSidebar"] .st-emotion-cache-1wivap2,
@@ -110,224 +140,288 @@ def theme_css():
         -webkit-text-fill-color: transparent;
         font-weight: 700;
     }}
+    section[data-testid="stSidebar"] hr {{
+        margin: 0.6rem 0 !important;
+    }}
 
-    /* Navbar */
-    .navbar {{
-        position: sticky; top: 0; z-index: 999;
-        background: rgba(255,255,255,0.85);
-        backdrop-filter: blur(16px);
-        border-bottom: 1px solid var(--card-border);
-        padding: 0.5rem 1.5rem;
-        margin: -0.5rem -1rem 0.75rem -1rem;
-        display: flex;
-        align-items: center;
-        gap: 1.5rem;
-    }}
-    .navbar.dark {{
-        background: rgba(15,23,42,0.9);
-    }}
-    .navbar-brand {{
+    /* ── Animated brand text ── */
+    .brand-text {{
         font-family: 'Syne', sans-serif;
         font-weight: 800;
-        font-size: 1.25rem;
-        background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%);
+        font-size: 1.3rem;
+        background: linear-gradient(90deg, var(--accent), var(--accent2), #e879f9);
+        background-size: 200% auto;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        display: flex; align-items: center; gap: 0.3rem;
+        animation: gradient-shift 3s ease infinite;
+        display: inline-flex; align-items: center; gap: 0.3rem;
     }}
-    .navbar-item {{
+    @keyframes gradient-shift {{
+        0% {{ background-position: 0% center; }}
+        50% {{ background-position: 100% center; }}
+        100% {{ background-position: 0% center; }}
+    }}
+
+    /* ── Top Nav ── */
+    .top-nav-bar {{
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: var(--card);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 0.35rem 0.35rem 0.35rem 1rem;
+        margin-bottom: 0.75rem;
+        box-shadow: 0 4px 24px var(--shadow);
+    }}
+    .top-nav-bar .nav-btn {{
         font-family: 'Inter', sans-serif;
         font-size: 0.82rem;
         font-weight: 500;
-        padding: 0.35rem 0.85rem;
-        border-radius: 8px;
+        padding: 0.4rem 0.9rem;
+        border-radius: 14px;
         cursor: pointer;
         color: var(--text2);
         border: none;
         background: none;
-        transition: all 0.2s;
+        transition: all 0.25s ease;
     }}
-    .navbar-item:hover {{ background: var(--hover); color: var(--text); }}
-    .navbar-item.active {{
-        background: var(--accent);
+    .top-nav-bar .nav-btn:hover {{
+        background: var(--hover);
+        color: var(--text);
+    }}
+    .top-nav-bar .nav-btn.active {{
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
         color: #fff !important;
+        box-shadow: 0 4px 16px var(--glow);
+    }}
+    .top-nav-bar .theme-btn {{
+        font-size: 1rem;
+        padding: 0.4rem 0.6rem;
+        border-radius: 12px;
+        cursor: pointer;
+        border: 1px solid var(--card-border);
+        background: var(--card);
+        transition: all 0.25s;
+    }}
+    .top-nav-bar .theme-btn:hover {{
+        background: var(--hover);
     }}
 
-    /* Cards */
+    /* ── Glass KPI Cards ── */
     .kpi-card {{
-        background: var(--card);
+        background: linear-gradient(135deg, rgba(129,140,248,0.12), rgba(167,139,250,0.06));
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border: 1px solid var(--card-border);
-        border-radius: 16px;
-        padding: 1rem 1.25rem;
-        box-shadow: 0 1px 3px var(--shadow);
-        transition: all 0.25s ease;
+        border-radius: 22px;
+        padding: 1.25rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         position: relative;
         overflow: hidden;
     }}
     .kpi-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px var(--shadow);
+        transform: translateY(-4px);
+        box-shadow: 0 12px 40px var(--shadow), 0 0 20px var(--glow);
         border-color: var(--accent);
     }}
-    .kpi-card::before {{
+    .kpi-card::after {{
         content: '';
         position: absolute;
         top: 0; left: 0; right: 0;
         height: 3px;
-        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        background: linear-gradient(90deg, var(--accent), var(--accent2), #e879f9);
         opacity: 0;
-        transition: opacity 0.25s;
+        transition: opacity 0.3s;
     }}
-    .kpi-card:hover::before {{ opacity: 1; }}
+    .kpi-card:hover::after {{ opacity: 1; }}
     .kpi-label {{
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         font-weight: 600;
         color: var(--text2);
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.35rem;
+        letter-spacing: 0.08em;
+        margin-bottom: 0.25rem;
+        opacity: 0.8;
     }}
     .kpi-value {{
         font-family: 'Inter', sans-serif;
-        font-size: 1.65rem;
+        font-size: 1.8rem;
         font-weight: 800;
         color: var(--text);
-        line-height: 1.2;
+        line-height: 1.15;
     }}
-    .kpi-trend {{
-        font-size: 0.75rem;
-        font-weight: 600;
-        margin-top: 0.25rem;
-    }}
+    .kpi-trend {{ font-size: 0.75rem; font-weight: 600; margin-top: 0.35rem; }}
     .kpi-trend.up {{ color: #22c55e; }}
     .kpi-trend.down {{ color: #ef4444; }}
 
-    /* Chart containers */
+    /* ── Chart containers ── */
     .chart-card {{
         background: var(--card);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border: 1px solid var(--card-border);
-        border-radius: 14px;
-        padding: 0.75rem 1rem;
-        box-shadow: 0 1px 3px var(--shadow);
-        transition: all 0.2s;
+        border-radius: 20px;
+        padding: 0.85rem 1rem;
+        box-shadow: 0 4px 16px var(--shadow);
+        transition: all 0.25s ease;
     }}
     .chart-card:hover {{
         border-color: var(--accent);
-        box-shadow: 0 4px 16px var(--shadow);
+        box-shadow: 0 8px 32px var(--shadow);
     }}
     .chart-title {{
-        font-size: 0.82rem;
+        font-size: 0.8rem;
         font-weight: 600;
         color: var(--text);
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.4rem;
+        opacity: 0.9;
     }}
 
-    /* Chat */
+    /* ── Chat Input (ChatGPT-style) ── */
     div[data-testid="stChatInput"] textarea {{
         background: var(--input-bg) !important;
-        border: 1.5px solid var(--input-border) !important;
-        border-radius: 14px !important;
+        border: 1px solid var(--input-border) !important;
+        border-radius: 18px !important;
         color: var(--text) !important;
-        font-size: 0.9rem !important;
-        padding: 10px 14px !important;
-        transition: all 0.2s !important;
+        font-size: 0.95rem !important;
+        padding: 14px 18px !important;
+        transition: all 0.25s ease !important;
+        backdrop-filter: blur(8px) !important;
     }}
     div[data-testid="stChatInput"] textarea:focus {{
         border-color: var(--accent) !important;
-        box-shadow: 0 0 0 3px var(--hover) !important;
+        box-shadow: 0 0 0 3px var(--hover), 0 0 20px var(--glow) !important;
     }}
-    div[data-testid="stChatMessage"] {{
-        background: var(--card) !important;
-        border: 1px solid var(--card-border) !important;
-        border-radius: 14px !important;
-        padding: 0.9rem 1.2rem !important;
-        margin-bottom: 0.7rem !important;
-        color: var(--text) !important;
-        box-shadow: 0 1px 4px var(--shadow) !important;
+    div[data-testid="stChatInput"] textarea::placeholder {{
+        color: var(--text2) !important;
+        opacity: 0.6;
     }}
 
-    /* SQL box */
+    /* ── Chat messages ── */
+    div[data-testid="stChatMessage"] {{
+        background: var(--card) !important;
+        backdrop-filter: blur(12px) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 18px !important;
+        padding: 0.85rem 1.1rem !important;
+        margin-bottom: 0.6rem !important;
+        color: var(--text) !important;
+        box-shadow: 0 2px 8px var(--shadow) !important;
+        transition: all 0.2s !important;
+    }}
+    div[data-testid="stChatMessage"]:hover {{
+        border-color: var(--accent) !important;
+    }}
+
+    /* ── SQL / Code box ── */
     .sql-box {{
-        background: var(--sql-bg);
+        background: rgba(15,23,42,0.5);
+        backdrop-filter: blur(8px);
         border: 1px solid var(--card-border);
         border-left: 3px solid var(--accent);
-        border-radius: 10px;
-        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        padding: 0.7rem 0.9rem;
         font-family: 'Space Mono', monospace;
-        font-size: 0.8rem;
+        font-size: 0.78rem;
         color: var(--text);
         white-space: pre-wrap;
         word-break: break-word;
         overflow-x: auto;
     }}
 
-    /* Metrics */
+    /* ── Metrics ── */
     div[data-testid="stMetric"] {{
         background: var(--card) !important;
+        backdrop-filter: blur(12px) !important;
         border: 1px solid var(--card-border) !important;
-        border-radius: 14px !important;
-        padding: 1rem !important;
-        box-shadow: none !important;
+        border-radius: 18px !important;
+        padding: 0.9rem !important;
         transition: all 0.2s;
     }}
     div[data-testid="stMetric"]:hover {{
         border-color: var(--accent) !important;
+        box-shadow: 0 4px 16px var(--shadow) !important;
     }}
-    div[data-testid="stMetricValue"] {{ color: var(--accent) !important; font-weight: 700 !important; }}
-    div[data-testid="stMetricLabel"] {{ color: var(--text2) !important; font-size: 0.8rem !important; }}
+    div[data-testid="stMetricValue"] {{
+        color: var(--accent) !important;
+        font-weight: 800 !important;
+        font-size: 1.5rem !important;
+    }}
+    div[data-testid="stMetricLabel"] {{
+        color: var(--text2) !important;
+        font-size: 0.75rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.05em !important;
+    }}
 
-    /* Buttons */
-    button {{ transition: all 0.2s ease !important; font-weight: 600 !important; font-size: 0.82rem !important; }}
+    /* ── Buttons ── */
+    button {{
+        border-radius: 14px !important;
+        font-weight: 600 !important;
+        font-size: 0.82rem !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }}
     button[kind="primary"] {{
         background: linear-gradient(135deg, var(--accent) 0%, var(--accent2) 100%) !important;
         color: #fff !important;
         border: none !important;
+        border-radius: 14px !important;
     }}
     button[kind="primary"]:hover {{
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(129,140,248,0.35) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 28px var(--glow) !important;
+    }}
+    button:not([kind]):hover {{
+        border-color: var(--accent) !important;
+        color: var(--accent) !important;
     }}
 
-    /* Tags */
+    /* ── Tags ── */
     .tag {{
         display: inline-block;
-        background: linear-gradient(135deg, rgba(129,140,248,0.15) 0%, rgba(167,139,250,0.1) 100%);
+        background: linear-gradient(135deg, rgba(129,140,248,0.15), rgba(167,139,250,0.1));
         border: 1px solid var(--accent);
         color: var(--accent);
         border-radius: 20px;
-        font-size: 0.65rem;
-        padding: 3px 10px;
+        font-size: 0.62rem;
+        padding: 2px 10px;
         font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.06em;
     }}
 
-    /* Status boxes */
+    /* ── Status boxes ── */
     .error-box, .success-box, .info-box {{
-        border-radius: 10px;
-        padding: 0.7rem 1rem;
-        font-size: 0.85rem;
+        border-radius: 12px;
+        padding: 0.65rem 0.9rem;
+        font-size: 0.82rem;
         border-left: 3px solid;
+        backdrop-filter: blur(8px);
     }}
     .error-box {{ background: rgba(239,68,68,0.1); border-color: #ef4444; color: #fca5a5; }}
     .success-box {{ background: rgba(34,197,94,0.1); border-color: #22c55e; color: #86efac; }}
     .info-box {{ background: rgba(59,130,246,0.1); border-color: #3b82f6; color: #93c5fd; }}
 
-    /* Divider */
+    /* ── Divider ── */
     hr {{
         border: none !important;
         height: 1px;
         background: linear-gradient(90deg, transparent, var(--card-border), transparent) !important;
-        margin: 1rem 0 !important;
+        margin: 0.75rem 0 !important;
     }}
 
-    /* Data quality panel */
+    /* ── Data quality panel ── */
     .dq-panel {{
         background: var(--card);
+        backdrop-filter: blur(12px);
         border: 1px solid var(--card-border);
-        border-radius: 14px;
-        padding: 1rem;
-        font-size: 0.8rem;
+        border-radius: 18px;
+        padding: 0.9rem;
+        font-size: 0.78rem;
     }}
     .dq-row {{
         display: flex; justify-content: space-between;
@@ -336,58 +430,103 @@ def theme_css():
     }}
     .dq-row:last-child {{ border-bottom: none; }}
     .dq-label {{ color: var(--text2); }}
-    .dq-value {{ font-weight: 600; color: var(--text); }}
+    .dq-value {{ font-weight: 700; color: var(--text); }}
 
-    /* AI thinking */
+    /* ── AI thinking ── */
+    .ai-thinking {{
+        padding: 0.5rem 0;
+    }}
     .ai-step {{
         padding: 0.35rem 0;
         font-size: 0.8rem;
         color: var(--text2);
-        display: flex; align-items: center; gap: 0.5rem;
+        display: flex; align-items: center; gap: 0.55rem;
+        opacity: 0.7;
     }}
-    .ai-step.active {{ color: var(--accent); font-weight: 600; }}
-    .ai-step.done {{ color: #22c55e; }}
+    .ai-step.active {{
+        color: var(--accent);
+        font-weight: 600;
+        opacity: 1;
+    }}
+    .ai-step.done {{
+        color: #22c55e;
+        opacity: 1;
+    }}
     .ai-dot {{
-        width: 6px; height: 6px; border-radius: 50%;
+        width: 7px; height: 7px; border-radius: 50%;
         background: var(--text2);
         display: inline-block;
+        flex-shrink: 0;
     }}
     .ai-step.active .ai-dot {{
         background: var(--accent);
         animation: pulse-dot 1s ease infinite;
+        box-shadow: 0 0 8px var(--accent);
     }}
     .ai-step.done .ai-dot {{ background: #22c55e; }}
     @keyframes pulse-dot {{
         0%, 100% {{ opacity: 1; transform: scale(1); }}
-        50% {{ opacity: 0.5; transform: scale(1.4); }}
+        50% {{ opacity: 0.6; transform: scale(1.5); }}
     }}
 
-    /* Filters row */
-    .filter-bar {{
-        display: flex; gap: 0.75rem; flex-wrap: wrap;
-        padding: 0.75rem 0;
-    }}
-    .filter-item {{
-        flex: 1; min-width: 130px;
+    /* ── Empty state ── */
+    .empty-state {{
+        border: 1px dashed var(--card-border);
+        border-radius: 24px;
+        padding: 3rem 1.5rem;
+        text-align: center;
+        background: var(--card);
+        backdrop-filter: blur(8px);
     }}
 
-    /* Compact spacing */
+    /* ── Typography ── */
+    h1, h2, h3, h4 {{
+        font-family: 'Inter', sans-serif !important;
+        letter-spacing: -0.02em !important;
+    }}
+    h1 {{ font-size: 2rem !important; font-weight: 800 !important; }}
+    h2 {{ font-size: 1.5rem !important; font-weight: 700 !important; }}
+    h3 {{ font-size: 1.2rem !important; font-weight: 700 !important; }}
+    h4 {{ font-size: 1rem !important; font-weight: 600 !important; }}
+    p, li, .stMarkdown > div > p {{
+        color: var(--text2);
+        line-height: 1.6;
+    }}
+
+    /* ── Compact spacing ── */
     .stApp header {{ display: none; }}
-    .main > div {{
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-    }}
+    .main > div {{ padding-top: 0 !important; padding-bottom: 0 !important; }}
     div.block-container {{
-        padding-top: 0.75rem !important;
-        padding-bottom: 1rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
+        max-width: 100% !important;
     }}
-    .stTabs [data-baseweb="tab-list"] {{
-        gap: 0.5rem;
-        margin-bottom: 0.25rem;
+    .row-widget.stTabs {{ margin-bottom: 0 !important; }}
+    .stTabs [data-baseweb="tab-list"] {{ gap: 0.25rem; margin-bottom: 0.25rem; }}
+    .stTabs [data-baseweb="tab"] {{ font-size: 0.8rem; padding: 0.25rem 0.6rem; }}
+    div[data-testid="stVerticalBlock"] > div {{ gap: 0.5rem !important; }}
+
+    /* ── DataFrame ── */
+    div[data-testid="stDataFrame"] {{
+        border: 1px solid var(--card-border) !important;
+        border-radius: 14px !important;
+        overflow: hidden !important;
     }}
-    .stTabs [data-baseweb="tab"] {{
-        font-size: 0.82rem;
-        padding: 0.3rem 0.8rem;
+
+    /* ── Expander ── */
+    details {{
+        border: 1px solid var(--card-border) !important;
+        border-radius: 14px !important;
+        background: var(--card) !important;
+        backdrop-filter: blur(8px) !important;
+        padding: 0.25rem 0.75rem !important;
+        margin-bottom: 0.4rem !important;
+    }}
+    details summary {{
+        font-weight: 600 !important;
+        font-size: 0.82rem !important;
+        color: var(--text) !important;
+        padding: 0.35rem 0 !important;
     }}
     </style>
     """
@@ -413,19 +552,24 @@ for key in ["messages", "pinned_charts", "uploaded_tables", "exploration_results
 st.markdown(theme_css(), unsafe_allow_html=True)
 
 # ── Top Navbar ──
-theme_toggle_label = "🌙" if st.session_state.theme == "light" else "☀️"
+theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
 nav_pages = ["💬 Chat", "📁 Data", "📊 Dashboard"]
-cols = st.columns([0.5, 3, *[0.6]*len(nav_pages), 0.5])
-with cols[1]:
-    st.markdown('<span class="navbar-brand">⚡ DataNova</span>', unsafe_allow_html=True)
-for i, page in enumerate(nav_pages):
-    with cols[2 + i]:
-        active = "active" if st.session_state.active_page == page.split()[-1] else ""
-        if st.button(page, key=f"nav_{page}", use_container_width=True, help=f"Go to {page}"):
-            st.session_state.active_page = page.split()[-1]
+nav_html = '<div class="top-nav-bar"><span class="brand-text">⚡ DataNova</span>'
+for page in nav_pages:
+    active = ' active' if st.session_state.active_page == page.split()[-1] else ''
+    nav_html += f'<span class="nav-btn{active}" onclick="window.location.reload()">{page}</span>'
+nav_html += f'<span style="flex:1"></span><span class="theme-btn" onclick="window.location.reload()">{theme_icon}</span></div>'
+st.markdown(nav_html, unsafe_allow_html=True)
+# Use hidden buttons for real navigation
+nav_cols = st.columns([0.01, 0.5, 0.5, 0.5, 0.01, 0.08])
+page_keys = ["Chat", "Data", "Dashboard"]
+for i, key in enumerate(page_keys):
+    with nav_cols[i + 1]:
+        if st.button(" ", key=f"nv_{key}", help=f"Go to {key}"):
+            st.session_state.active_page = key
             st.rerun()
-with cols[-1]:
-    if st.button(theme_toggle_label, key="theme_toggle", help="Toggle dark/light mode"):
+with nav_cols[-1]:
+    if st.button(" ", key="nv_theme", help="Toggle theme"):
         st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
         st.rerun()
 
@@ -624,11 +768,11 @@ active = st.session_state.active_page
 # ════════════════════════════════════════════════════
 if active == "Chat":
     # Split view: Chat (left) + Dashboard/Results (right)
-    chat_col, result_col = st.columns([1.1, 1], gap="small")
+    chat_col, result_col = st.columns([0.55, 1], gap="small")
 
     with chat_col:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         st.markdown("#### 💬 AI Chat")
-        # Render messages
         for i, msg in enumerate(st.session_state.messages):
             is_last = (i == len(st.session_state.messages) - 1)
             if is_last and msg.get("pending_execution"):
@@ -715,7 +859,10 @@ if active == "Chat":
                 })
                 st.rerun()
 
+        st.markdown('</div>', unsafe_allow_html=True)
+
     with result_col:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
         st.markdown("#### 📊 Results")
         if st.session_state.messages:
             last = st.session_state.messages[-1]
@@ -746,7 +893,8 @@ if active == "Chat":
             if last.get("pending_execution"):
                 st.markdown('<div class="info-box">✋ Review the generated SQL in the chat panel, then execute or cancel.</div>', unsafe_allow_html=True)
         if not st.session_state.messages:
-            st.markdown('<div style="color:var(--text2);text-align:center;padding:2rem;">Ask a question to see results here</div>', unsafe_allow_html=True)
+            st.markdown('<div class="empty-state"><p style="color:var(--text2);">Ask a question to see results here</p></div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════
 # PAGE: DATA
@@ -854,7 +1002,7 @@ elif active == "Dashboard":
     has_pinned = bool(st.session_state.pinned_charts)
 
     if not has_auto and not has_pinned:
-        st.markdown('<div style="text-align:center;padding:3rem;color:var(--text2);"><div style="font-size:2.5rem;margin-bottom:0.5rem;">📊</div><h4>No Dashboards Yet</h4><p>Upload a dataset in <b>Data</b> tab to auto-generate a dashboard, or pin charts from <b>Chat</b>.</p></div>', unsafe_allow_html=True)
+        st.markdown('<div class="empty-state"><div style="font-size:2.5rem;margin-bottom:0.5rem;">📊</div><h4>No Dashboards Yet</h4><p style="color:var(--text2);">Upload a dataset in <b>Data</b> tab to auto-generate a dashboard, or pin charts from <b>Chat</b>.</p></div>', unsafe_allow_html=True)
 
     if has_auto:
         dash_names = list(st.session_state.auto_dashboards.keys())
