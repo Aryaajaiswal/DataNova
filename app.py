@@ -203,6 +203,86 @@ def get_theme_css(theme):
         border-color: var(--accent) !important;
         box-shadow: 0 0 16px var(--glow) !important;
     }}
+    /* ── Navbar columns glass style ── */
+    div[data-testid="column"]:has(> div[style*="Syne"]) + div[data-testid="column"] {{
+        background: var(--card);
+        backdrop-filter: blur(24px) saturate(1.4);
+        -webkit-backdrop-filter: blur(24px) saturate(1.4);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 0.2rem 0.5rem 0.2rem 0;
+        box-shadow: 0 4px 24px var(--shadow);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 0 !important;
+        transition: box-shadow 0.3s ease;
+    }}
+    div[data-testid="column"]:has(> div[style*="Syne"]) + div[data-testid="column"]:hover {{
+        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
+    }}
+    div[data-testid="column"]:has(> div[style*="Syne"]) + div[data-testid="column"] button {{
+        font-size: 1.05rem !important;
+        padding: 0.15rem 0.4rem !important;
+        border-radius: 14px !important;
+        border: 1px solid var(--card-border) !important;
+        background: var(--input-bg) !important;
+        min-width: unset !important;
+        width: auto !important;
+        box-shadow: none !important;
+        line-height: 1.3 !important;
+    }}
+    /* ── Hamburger button ── */
+    div[data-testid="column"]:first-child:has(button) {{
+        background: var(--card);
+        backdrop-filter: blur(24px) saturate(1.4);
+        -webkit-backdrop-filter: blur(24px) saturate(1.4);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 0.2rem 0.3rem;
+        box-shadow: 0 4px 24px var(--shadow);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 0 !important;
+        transition: box-shadow 0.3s ease;
+    }}
+    div[data-testid="column"]:first-child:has(button):hover {{
+        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
+    }}
+    div[data-testid="column"]:first-child button {{
+        font-size: 1.15rem !important;
+        padding: 0.15rem 0.4rem !important;
+        border-radius: 14px !important;
+        border: 1px solid var(--card-border) !important;
+        background: var(--input-bg) !important;
+        min-width: unset !important;
+        width: auto !important;
+        box-shadow: none !important;
+        line-height: 1.3 !important;
+        color: var(--text) !important;
+        transition: all 0.2s !important;
+    }}
+    div[data-testid="column"]:first-child button:hover {{
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 16px var(--glow) !important;
+    }}
+    /* ── Navbar brand column ── */
+    div[data-testid="column"]:has(> div[style*="Syne"]) {{
+        background: var(--card);
+        backdrop-filter: blur(24px) saturate(1.4);
+        -webkit-backdrop-filter: blur(24px) saturate(1.4);
+        border: 1px solid var(--card-border);
+        border-radius: 20px;
+        padding: 0.3rem 0 0.3rem 0.2rem;
+        box-shadow: 0 4px 24px var(--shadow);
+        transition: box-shadow 0.3s ease;
+        overflow: visible !important;
+        min-width: fit-content !important;
+    }}
+    div[data-testid="column"]:has(> div[style*="Syne"]):hover {{
+        box-shadow: 0 6px 32px var(--shadow), 0 0 0 1px rgba(129,140,248,0.15);
+    }}
     /* Re-open arrow when sidebar is collapsed */
     .stSidebarCollapsedButton {{
         font-size: 1.5rem !important;
@@ -772,6 +852,7 @@ defaults = {
     "auto_dashboards": {},
     "selected_dashboard": None,
     "cached_questions": {},
+    "sidebar_open": True,
 }
 for k, v in defaults.items():
     st.session_state.setdefault(k, v)
@@ -781,40 +862,31 @@ st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
 
 # ── Top Navbar ──
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
-nb1, nb2, nb3 = st.columns([5, 14, 1], gap="small")
-with nb1:
+nb_cols = st.columns([1, 5, 14, 1], gap="small")
+with nb_cols[0]:
+    ham_icon = "☰"
+    if st.button(ham_icon, key="sidebar_toggle_nav", help="Toggle sidebar"):
+        st.session_state.sidebar_open = not st.session_state.sidebar_open
+        st.rerun()
+with nb_cols[1]:
     st.markdown('<div style="font-family:Syne,sans-serif;font-weight:800;font-size:1.4rem;padding:0.15rem 0 0.15rem 0.8rem;background:linear-gradient(90deg,var(--accent),var(--accent2),#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;overflow:visible;">DataNova</div>', unsafe_allow_html=True)
-with nb3:
+with nb_cols[3]:
     if st.button(theme_icon, key="theme_toggle_nav", help="Toggle theme"):
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
         st.rerun()
 
-# ── Floating sidebar toggle ──
-try:
-    from streamlit.components.v1 import html as st_html
-    st_html(f'''
-    <div id="sbf" style="position:fixed;left:0;top:50%;z-index:99999;font-size:1.3rem;
-        background:var(--card, rgba(255,255,255,0.08));border:1px solid var(--card-border, rgba(255,255,255,0.12));
-        border-radius:0 14px 14px 0;padding:0.5rem 0.5rem 0.5rem 0.25rem;cursor:pointer;
-        box-shadow:0 4px 20px rgba(0,0,0,0.5);backdrop-filter:blur(12px);line-height:1;color:#818cf8;display:none;"
-        onclick="var b=document.querySelector('button[data-testid=\\'baseButton-header\\']');if(b)b.click();">▸</div>
-    <script>
-    (function(){{
-        var b=document.getElementById('sbf');if(!b)return;
-        function u(){{
-            var s=document.querySelector('section[data-testid="stSidebar"]');
-            if(!s){{b.style.display='none';return;}}
-            var d=s.style.display||getComputedStyle(s).display;
-            var v=s.style.visibility||getComputedStyle(s).visibility;
-            var w=s.offsetWidth;
-            b.style.display=(d==='none'||v==='hidden'||w<10)?'block':'none';
-        }}
-        setInterval(u,600);u();
-    }})();
-    </script>
-    ''', height=0, width=0)
-except Exception:
-    pass
+# ── Sidebar visibility CSS ──
+if not st.session_state.sidebar_open:
+    st.markdown('''
+    <style>
+    section[data-testid="stSidebar"] {
+        display: none !important;
+    }
+    .stApp > header + div {
+        margin-left: 0 !important;
+    }
+    </style>
+    ''', unsafe_allow_html=True)
 
 # ── Helper functions ──
 def auto_chart(df: pd.DataFrame):
