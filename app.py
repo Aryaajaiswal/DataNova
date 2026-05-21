@@ -127,13 +127,29 @@ def theme_css():
         background: var(--sidebar) !important;
         border-right: 1px solid var(--card-border) !important;
         backdrop-filter: blur(20px) !important;
-        padding: 0.75rem 0.75rem 2rem 0.75rem !important;
+        padding: 0 !important;
         gap: 0 !important;
+    }}
+    section[data-testid="stSidebar"] > div:first-child {{
         overflow-y: auto !important;
-        height: 100vh !important;
+        max-height: 100vh !important;
+        padding: 0.75rem !important;
     }}
     section[data-testid="stSidebar"] * {{
         color: var(--text) !important;
+    }}
+    section[data-testid="stSidebar"] button:not([kind="primary"]) {{
+        background: var(--card) !important;
+        border: 1px solid var(--card-border) !important;
+        color: var(--text) !important;
+        border-radius: 12px !important;
+        padding: 0.35rem 0.75rem !important;
+        font-weight: 500 !important;
+        transition: all 0.2s !important;
+    }}
+    section[data-testid="stSidebar"] button:not([kind="primary"]):hover {{
+        background: var(--hover) !important;
+        border-color: var(--accent) !important;
     }}
     section[data-testid="stSidebar"] .st-emotion-cache-1wivap2,
     section[data-testid="stSidebar"] h2,
