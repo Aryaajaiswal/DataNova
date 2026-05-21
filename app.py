@@ -148,13 +148,16 @@ def theme_css():
     .brand-text {{
         font-family: 'Syne', sans-serif;
         font-weight: 800;
-        font-size: 1.3rem;
+        font-size: 1.4rem;
+        letter-spacing: 0.02em;
         background: linear-gradient(90deg, var(--accent), var(--accent2), #e879f9);
         background-size: 200% auto;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
+        background-clip: text;
         animation: gradient-shift 3s ease infinite;
         display: inline-flex; align-items: center; gap: 0.3rem;
+        filter: drop-shadow(0 0 12px var(--glow));
     }}
     @keyframes gradient-shift {{
         0% {{ background-position: 0% center; }}
@@ -163,51 +166,36 @@ def theme_css():
     }}
 
     /* ── Top Nav ── */
-    .top-nav-bar {{
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: var(--card);
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
-        border: 1px solid var(--card-border);
-        border-radius: 20px;
-        padding: 0.35rem 0.35rem 0.35rem 1rem;
-        margin-bottom: 0.75rem;
-        box-shadow: 0 4px 24px var(--shadow);
+    /* Glass nav bar row */
+    div[data-testid="stHorizontalBlock"]:has(> div > .brand-text) {{
+        background: var(--card) !important;
+        backdrop-filter: blur(20px) !important;
+        -webkit-backdrop-filter: blur(20px) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 20px !important;
+        padding: 0.25rem 0.5rem 0.25rem 1rem !important;
+        margin-bottom: 0.5rem !important;
+        box-shadow: 0 4px 24px var(--shadow) !important;
     }}
-    .top-nav-bar .nav-btn {{
-        font-family: 'Inter', sans-serif;
-        font-size: 0.82rem;
-        font-weight: 500;
-        padding: 0.4rem 0.9rem;
-        border-radius: 14px;
-        cursor: pointer;
-        color: var(--text2);
-        border: none;
-        background: none;
-        transition: all 0.25s ease;
+    div[data-testid="stHorizontalBlock"]:has(> div > .brand-text) > div {{
+        padding: 0 !important;
     }}
-    .top-nav-bar .nav-btn:hover {{
-        background: var(--hover);
-        color: var(--text);
+    /* Nav buttons - clean transparent style */
+    div[data-testid="stHorizontalBlock"]:has(> div > .brand-text) button {{
+        background: transparent !important;
+        border: none !important;
+        color: var(--text2) !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+        padding: 0.35rem 0.5rem !important;
+        border-radius: 14px !important;
+        transition: all 0.25s ease !important;
+        min-height: unset !important;
+        line-height: 1.4 !important;
     }}
-    .top-nav-bar .nav-btn.active {{
-        background: linear-gradient(135deg, var(--accent), var(--accent2));
-        color: #fff !important;
-        box-shadow: 0 4px 16px var(--glow);
-    }}
-    .top-nav-bar .theme-btn {{
-        font-size: 1rem;
-        padding: 0.4rem 0.6rem;
-        border-radius: 12px;
-        cursor: pointer;
-        border: 1px solid var(--card-border);
-        background: var(--card);
-        transition: all 0.25s;
-    }}
-    .top-nav-bar .theme-btn:hover {{
-        background: var(--hover);
+    div[data-testid="stHorizontalBlock"]:has(> div > .brand-text) button:hover {{
+        background: var(--hover) !important;
+        color: var(--text) !important;
     }}
 
     /* ── Glass KPI Cards ── */
@@ -512,18 +500,6 @@ def theme_css():
         max-width: 260px !important;
     }}
 
-    /* ── Hide invisible nav buttons (white pills) ── */
-    div[data-testid="column"]:has(> button:empty),
-    button:empty {{
-        display: none !important;
-        width: 0 !important;
-        height: 0 !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        border: none !important;
-        overflow: hidden !important;
-    }}
-
     /* ── File uploader glass ── */
     .stFileUploader > div > div {{
         background: var(--card) !important;
@@ -620,26 +596,25 @@ st.markdown(theme_css(), unsafe_allow_html=True)
 # ── Top Navbar ──
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
 nav_pages = ["💬 Chat", "📁 Data", "📊 Dashboard"]
-nav_html = '<div class="top-nav-bar"><span class="brand-text">⚡ DataNova</span>'
-for page in nav_pages:
-    active = ' active' if st.session_state.active_page == page.split()[-1] else ''
-    nav_html += f'<span class="nav-btn{active}" onclick="window.location.reload()">{page}</span>'
-nav_html += f'<span style="flex:1"></span><span class="theme-btn" onclick="window.location.reload()">{theme_icon}</span></div>'
-st.markdown(nav_html, unsafe_allow_html=True)
-# Use hidden buttons for real navigation
-nav_cols = st.columns([0.01, 0.5, 0.5, 0.5, 0.01, 0.08])
-page_keys = ["Chat", "Data", "Dashboard"]
-for i, key in enumerate(page_keys):
-    with nav_cols[i + 1]:
-        if st.button(" ", key=f"nv_{key}", help=f"Go to {key}"):
-            st.session_state.active_page = key
-            st.rerun()
-with nav_cols[-1]:
-    if st.button(" ", key="nv_theme", help="Toggle theme"):
+nav_keys = ["Chat", "Data", "Dashboard"]
+ncol = st.columns([1.8, 1, 1, 1, 1.2, 0.6], gap="small", vertical_alignment="center")
+with ncol[0]:
+    st.markdown('<span class="brand-text">⚡ DataNova</span>', unsafe_allow_html=True)
+for i, (label, key) in enumerate(zip(nav_pages, nav_keys)):
+    with ncol[i + 1]:
+        is_active = st.session_state.active_page == key
+        if is_active:
+            st.markdown(f'<div class="nav-btn active" style="text-align:center;padding:0.4rem 0;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:600;font-size:0.82rem;box-shadow:0 4px 16px var(--glow);">{label}</div>', unsafe_allow_html=True)
+        else:
+            if st.button(label, key=f"nav_{key}", use_container_width=True):
+                st.session_state.active_page = key
+                st.rerun()
+with ncol[-2]:
+    st.markdown("")  # spacer
+with ncol[-1]:
+    if st.button(theme_icon, key="nav_theme", help="Toggle dark/light"):
         st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
         st.rerun()
-
-st.markdown("")  # spacer
 
 # ── Helper functions ──
 def auto_chart(df: pd.DataFrame):
