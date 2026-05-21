@@ -147,6 +147,22 @@ def theme_css():
         font-weight: 500 !important;
         transition: all 0.2s !important;
     }}
+    section[data-testid="stSidebar"] input[type="text"] {{
+        background: var(--input-bg) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--input-border) !important;
+        border-radius: 12px !important;
+        padding: 0.5rem 0.75rem !important;
+    }}
+    section[data-testid="stSidebar"] input[type="text"]::placeholder {{
+        color: var(--text2) !important;
+    }}
+    section[data-testid="stSidebar"] textarea {{
+        background: var(--input-bg) !important;
+        color: var(--text) !important;
+        border: 1px solid var(--input-border) !important;
+        border-radius: 12px !important;
+    }}
     section[data-testid="stSidebar"] button:not([kind="primary"]):hover {{
         background: var(--hover) !important;
         border-color: var(--accent) !important;
@@ -373,6 +389,10 @@ def theme_css():
     }}
 
     /* ── Buttons ── */
+    @keyframes pulse {{
+        0%, 100% {{ opacity: 1; transform: scale(1); }}
+        50% {{ opacity: 0.5; transform: scale(1.2); }}
+    }}
     button {{
         border-radius: 14px !important;
         font-weight: 600 !important;
@@ -899,14 +919,33 @@ with tab_chat:
             last_msg = st.session_state.messages[-1]
             if last_msg["role"] == "assistant" and last_msg.get("pending_execution"):
                 with st.chat_message("assistant", avatar="⚡"):
-                    st.markdown("#### ✋ Review & Execute")
-                    if last_msg.get("explanation"):
-                        st.caption(f"💡 {last_msg['explanation']}")
                     is_python = last_msg.get("is_python_task", False)
-                    edited_code = st.text_area("Code" if is_python else "SQL", value=last_msg.get("python_code" if is_python else "sql", ""), height=120)
-                    c1, c2 = st.columns([1, 4])
-                    with c1:
-                        if st.button("▶ Execute", type="primary", use_container_width=True):
+                    code_type = "Python" if is_python else "SQL"
+                    code_val = last_msg.get("python_code" if is_python else "sql", "")
+                    explanation = last_msg.get("explanation", "")
+                    
+                    st.markdown(f'''
+                    <div class="glass-card" style="padding:1.25rem;margin-bottom:0.5rem;border-left:3px solid var(--accent);">
+                        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+                            <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite;"></div>
+                            <span style="font-weight:700;font-size:0.95rem;">Ready to Execute</span>
+                            <span class="tag" style="margin-left:auto;">{code_type}</span>
+                        </div>
+                        {f'<div style="font-size:0.8rem;color:var(--text2);margin-bottom:0.75rem;padding-left:0.5rem;border-left:2px solid var(--card-border);">{explanation}</div>' if explanation else ''}
+                    </div>
+                    ''', unsafe_allow_html=True)
+                    
+                    edited_code = st.text_area(
+                        f"Edit {code_type} if needed",
+                        value=code_val,
+                        height=140,
+                        label_visibility="collapsed",
+                        key="edit_code_pending"
+                    )
+                    
+                    btn_col1, btn_col2, btn_col3 = st.columns([3, 1.5, 1], gap="small")
+                    with btn_col1:
+                        if st.button("▶ Execute Query", type="primary", use_container_width=True, key="exec_primary"):
                             if is_python:
                                 last_msg["python_code"] = edited_code
                             else:
@@ -922,6 +961,17 @@ with tab_chat:
                             last_msg["chart_spec"] = exec_res.get("chart_spec")
                             last_msg["error"] = exec_res.get("error_message")
                             st.rerun()
+                    with btn_col2:
+                        if st.button("📋 Copy", use_container_width=True, key="exec_copy"):
+                            st.session_state["copy_code"] = edited_code
+                    with btn_col3:
+                        if st.button("✕", use_container_width=True, key="exec_cancel", help="Discard"):
+                            st.session_state.messages.pop()
+                            st.rerun()
+                    
+                    if st.session_state.get("copy_code"):
+                        st.toast("Code copied!", icon="📋")
+                        st.session_state.pop("copy_code", None)
                     with c2:
                         if st.button("Cancel"):
                             st.session_state.messages.pop()
