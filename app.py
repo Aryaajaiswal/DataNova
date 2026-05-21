@@ -23,8 +23,6 @@ st.set_page_config(page_title="DataNova", page_icon="⚡", layout="wide", initia
 # ── Theme state ──
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
-if "active_page" not in st.session_state:
-    st.session_state.active_page = "Chat"
 
 # ── CSS Variables + Theming ──
 LIGHT_VARS = {
@@ -477,6 +475,41 @@ def theme_css():
         line-height: 1.6;
     }}
 
+    /* ── Tabs styled as premium pills ── */
+    button[data-baseweb="tab"] {{
+        font-size: 0.85rem !important;
+        font-weight: 600 !important;
+        color: var(--text2) !important;
+        background: transparent !important;
+        border-radius: 14px !important;
+        padding: 0.4rem 1rem !important;
+        margin: 0 0.15rem !important;
+        border: none !important;
+        transition: all 0.25s ease !important;
+    }}
+    button[data-baseweb="tab"]:hover {{
+        background: var(--hover) !important;
+        color: var(--text) !important;
+    }}
+    button[data-baseweb="tab"][aria-selected="true"] {{
+        background: linear-gradient(135deg, var(--accent), var(--accent2)) !important;
+        color: #fff !important;
+        box-shadow: 0 4px 16px var(--glow) !important;
+    }}
+    div[data-baseweb="tab-list"] {{
+        gap: 0.25rem !important;
+        background: var(--card) !important;
+        backdrop-filter: blur(20px) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 20px !important;
+        padding: 0.3rem !important;
+        margin-bottom: 0.75rem !important;
+        box-shadow: 0 4px 24px var(--shadow) !important;
+    }}
+    div[data-baseweb="tab-highlight"] {{
+        display: none !important;
+    }}
+
     /* ── Compact spacing ── */
     .stApp header {{ display: none; }}
     .main > div {{ padding-top: 0 !important; padding-bottom: 0 !important; }}
@@ -594,32 +627,18 @@ for key in ["messages", "pinned_charts", "uploaded_tables", "exploration_results
 # ── Inject theme CSS ──
 st.markdown(theme_css(), unsafe_allow_html=True)
 
-# ── Top Navbar (pure HTML, no Streamlit buttons) ──
+# ── Top Navbar ──
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
-active_page = st.session_state.active_page
-nav_items = [
-    ("💬 Chat", "Chat"),
-    ("📁 Data", "Data"),
-    ("📊 Dashboard", "Dashboard"),
-]
-links_html = ""
-for label, key in nav_items:
-    cls = ' class="active"' if active_page == key else ''
-    links_html += f'<a href="?page={key}"{cls}>{label}</a>'
 st.markdown(f'''
 <div id="top-nav-wrapper">
   <span class="brand-text">⚡ DataNova</span>
-  {links_html}
+  <span style="flex:1"></span>
   <a href="?theme=toggle" class="theme-btn">{theme_icon}</a>
 </div>
 ''', unsafe_allow_html=True)
 
-# Handle query params for navigation
+# Handle theme toggle via query param (no page rerun needed)
 params = st.query_params
-if "page" in params:
-    st.session_state.active_page = params["page"]
-    st.query_params.clear()
-    st.rerun()
 if "theme" in params:
     st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
     st.query_params.clear()
@@ -812,14 +831,13 @@ with st.sidebar:
 
     st.markdown('<div style="font-size:0.7rem;color:var(--text2);text-align:center;margin-top:1rem;">⚡ DataNova · LangGraph · Groq</div>', unsafe_allow_html=True)
 
-# ── Page Router ──
-active = st.session_state.active_page
+# ── Tabs (instant, no rerun) ──
+tab_chat, tab_data, tab_dash = st.tabs(["💬 Chat", "📁 Data", "📊 Dashboard"])
 
 # ════════════════════════════════════════════════════
-# PAGE: CHAT
+# TAB: CHAT
 # ════════════════════════════════════════════════════
-if active == "Chat":
-    # Split view: Chat (left) + Dashboard/Results (right)
+with tab_chat:
     chat_col, result_col = st.columns([0.55, 1], gap="small")
 
     with chat_col:
@@ -949,9 +967,9 @@ if active == "Chat":
         st.markdown('</div>', unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════
-# PAGE: DATA
+# TAB: DATA
 # ════════════════════════════════════════════════════
-elif active == "Data":
+with tab_data:
     st.markdown('<p class="section-title">📁 Upload Data</p>', unsafe_allow_html=True)
     with st.expander("🌐 Fetch from URL", expanded=False):
         url = st.text_input("URL to CSV/JSON/Excel", placeholder="https://example.com/data.csv", label_visibility="collapsed")
@@ -1047,9 +1065,9 @@ elif active == "Data":
         st.markdown('<div class="empty-state"><div style="font-size:2rem;margin-bottom:0.5rem;">📂</div><p style="color:var(--text2);">Upload your first dataset above to begin analysis</p></div>', unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════
-# PAGE: DASHBOARD
+# TAB: DASHBOARD
 # ════════════════════════════════════════════════════
-elif active == "Dashboard":
+with tab_dash:
     has_auto = bool(st.session_state.auto_dashboards)
     has_pinned = bool(st.session_state.pinned_charts)
 
@@ -1192,8 +1210,6 @@ elif active == "Dashboard":
                 for qi, q in enumerate(dash["suggested_questions"]):
                     if st.button(q, use_container_width=True, key=f"sq_{selected}_{qi}"):
                         st.session_state["prefill"] = q
-                        st.session_state.active_page = "Chat"
-                        st.rerun()
 
     # ── Pinned Charts ──
     if has_pinned:
