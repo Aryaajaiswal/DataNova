@@ -124,11 +124,13 @@ def get_theme_css(theme):
 
     /* ── Sidebar ── */
     section[data-testid="stSidebar"] {{
-        background: var(--sidebar) !important;
+        background: rgba(15,23,42,0.82) !important;
         border-right: 1px solid var(--card-border) !important;
         backdrop-filter: blur(20px) !important;
         padding: 0 !important;
         gap: 0 !important;
+        min-width: 240px !important;
+        max-width: 240px !important;
     }}
     section[data-testid="stSidebar"] > div:first-child {{
         overflow-y: auto !important;
@@ -749,14 +751,18 @@ def get_theme_css(theme):
         padding: 0.3rem 0 !important;
     }}
 
-    /* ── Custom tab buttons ── */
+    /* ── Custom tab buttons (compact pills) ── */
     div[data-testid="column"] button[kind="primary"] {{
         background: linear-gradient(135deg, var(--accent), var(--accent2)) !important;
         color: #fff !important;
         border: none !important;
         border-radius: 14px !important;
         font-weight: 600 !important;
+        font-size: 0.8rem !important;
+        padding: 0.25rem 0.5rem !important;
         box-shadow: 0 4px 16px var(--glow) !important;
+        min-height: 0 !important;
+        height: auto !important;
     }}
     div[data-testid="column"] button[kind="secondary"] {{
         background: var(--card) !important;
@@ -764,11 +770,31 @@ def get_theme_css(theme):
         border: 1px solid var(--card-border) !important;
         border-radius: 14px !important;
         font-weight: 500 !important;
+        font-size: 0.8rem !important;
+        padding: 0.25rem 0.5rem !important;
         backdrop-filter: blur(8px) !important;
+        min-height: 0 !important;
+        height: auto !important;
     }}
     div[data-testid="column"] button[kind="secondary"]:hover {{
         border-color: var(--accent) !important;
         color: var(--text) !important;
+    }}
+
+    /* ── Feature cards hover ── */
+    .feature-card {{
+        text-align: center;
+        padding: 1.2rem 0.5rem;
+        background: var(--card);
+        border: 1px solid var(--card-border);
+        border-radius: 18px;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        cursor: default;
+    }}
+    .feature-card:hover {{
+        transform: translateY(-6px);
+        border-color: var(--accent);
+        box-shadow: 0 12px 30px var(--glow);
     }}
 
     /* ── Text inputs glass ── */
@@ -1057,8 +1083,15 @@ with st.sidebar:
         if user_tables:
             for t in user_tables:
                 schema = get_cached_schema(db_url_input, t)
-                st.markdown(f"**{t}**")
-                st.caption(f"{schema}")
+                col_count = schema.count(",") + 1
+                try:
+                    row_count = get_cached_connector(db_url_input).execute_query(f"SELECT COUNT(*) FROM \"{t}\"").iloc[0, 0]
+                except Exception:
+                    row_count = "?"
+                st.markdown(f'''<div style="background:var(--card);border:1px solid var(--card-border);border-radius:12px;padding:0.4rem 0.7rem;margin-bottom:0.25rem;">
+                    <div style="font-weight:600;font-size:0.82rem;">{t}</div>
+                    <div style="font-size:0.68rem;color:var(--text2);">{col_count} columns · {row_count} rows</div>
+                </div>''', unsafe_allow_html=True)
         else:
             st.markdown('<div class="empty-state" style="padding:1rem;"><p style="color:var(--text2);font-size:0.8rem;"> No tables yet — upload data in the <b>Data</b> tab</p></div>', unsafe_allow_html=True)
     else:
@@ -1134,7 +1167,7 @@ if not has_data:
             <p style="font-size:0.9rem;color:var(--text2);opacity:0.7;max-width:420px;margin:0 auto 1.5rem;line-height:1.6;">
                 Upload data, ask questions in natural language, and generate dashboards, insights, and executive summaries instantly.
             </p>
-            <p style="font-size:0.85rem;color:var(--accent);font-weight:600;margin-bottom:1.2rem;letter-spacing:0.05em;">
+            <p style="font-size:0.85rem;color:#9ea8ff;font-weight:600;margin-bottom:1.2rem;letter-spacing:0.04em;">
                 Upload → Ask → Analyze → Visualize
             </p>
         </div>
@@ -1149,6 +1182,15 @@ if not has_data:
                 st.session_state["load_demo"] = True
                 st.session_state.selected_tab = "📁 Data"
                 st.rerun()
+
+    st.markdown(f'''
+    <div style="display:flex;justify-content:center;gap:0.75rem;flex-wrap:wrap;margin:0.8rem 0 0;">
+        <span style="font-size:0.7rem;padding:0.2rem 0.7rem;background:var(--card);border:1px solid var(--card-border);border-radius:20px;color:var(--text2);">⚡ LangGraph + Groq</span>
+        <span style="font-size:0.7rem;padding:0.2rem 0.7rem;background:var(--card);border:1px solid var(--card-border);border-radius:20px;color:var(--text2);">📊 Auto dashboards</span>
+        <span style="font-size:0.7rem;padding:0.2rem 0.7rem;background:var(--card);border:1px solid var(--card-border);border-radius:20px;color:var(--text2);">🔒 Safe SQL execution</span>
+        <span style="font-size:0.7rem;padding:0.2rem 0.7rem;background:var(--card);border:1px solid var(--card-border);border-radius:20px;color:var(--text2);">📁 CSV · Excel · SQLite</span>
+    </div>
+    ''', unsafe_allow_html=True)
 
 # ── Custom Tabs (programmatic switching) ──
 tab_labels = ["💬 Chat", "📁 Data", "📊 Dashboard"]
@@ -1165,19 +1207,19 @@ for i, label in enumerate(tab_labels):
 if not has_data:
     fc1, fc2, fc3 = st.columns(3, gap="small")
     with fc1:
-        st.markdown(f'''<div style="text-align:center;padding:1.2rem 0.5rem;background:var(--card);border:1px solid var(--card-border);border-radius:18px;">
+        st.markdown(f'''<div class="feature-card">
             <div style="font-size:2rem;margin-bottom:0.3rem;">🧠</div>
             <div style="font-weight:600;font-size:0.85rem;">AI SQL Generation</div>
             <div style="font-size:0.7rem;color:var(--text2);margin-top:0.2rem;">Natural language to queries</div>
         </div>''', unsafe_allow_html=True)
     with fc2:
-        st.markdown(f'''<div style="text-align:center;padding:1.2rem 0.5rem;background:var(--card);border:1px solid var(--card-border);border-radius:18px;">
+        st.markdown(f'''<div class="feature-card">
             <div style="font-size:2rem;margin-bottom:0.3rem;">📊</div>
             <div style="font-weight:600;font-size:0.85rem;">Auto Dashboards</div>
             <div style="font-size:0.7rem;color:var(--text2);margin-top:0.2rem;">KPIs, charts, insights</div>
         </div>''', unsafe_allow_html=True)
     with fc3:
-        st.markdown(f'''<div style="text-align:center;padding:1.2rem 0.5rem;background:var(--card);border:1px solid var(--card-border);border-radius:18px;">
+        st.markdown(f'''<div class="feature-card">
             <div style="font-size:2rem;margin-bottom:0.3rem;">⚡</div>
             <div style="font-weight:600;font-size:0.85rem;">Executive Insights</div>
             <div style="font-size:0.7rem;color:var(--text2);margin-top:0.2rem;">AI-powered summaries</div>
