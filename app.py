@@ -789,6 +789,33 @@ with nb3:
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
         st.rerun()
 
+# ── Floating sidebar toggle ──
+try:
+    from streamlit.components.v1 import html as st_html
+    st_html(f'''
+    <div id="sbf" style="position:fixed;left:0;top:50%;z-index:99999;font-size:1.3rem;
+        background:var(--card, rgba(255,255,255,0.08));border:1px solid var(--card-border, rgba(255,255,255,0.12));
+        border-radius:0 14px 14px 0;padding:0.5rem 0.5rem 0.5rem 0.25rem;cursor:pointer;
+        box-shadow:0 4px 20px rgba(0,0,0,0.5);backdrop-filter:blur(12px);line-height:1;color:#818cf8;display:none;"
+        onclick="var b=document.querySelector('button[data-testid=\\'baseButton-header\\']');if(b)b.click();">▸</div>
+    <script>
+    (function(){{
+        var b=document.getElementById('sbf');if(!b)return;
+        function u(){{
+            var s=document.querySelector('section[data-testid="stSidebar"]');
+            if(!s){{b.style.display='none';return;}}
+            var d=s.style.display||getComputedStyle(s).display;
+            var v=s.style.visibility||getComputedStyle(s).visibility;
+            var w=s.offsetWidth;
+            b.style.display=(d==='none'||v==='hidden'||w<10)?'block':'none';
+        }}
+        setInterval(u,600);u();
+    }})();
+    </script>
+    ''', height=0, width=0)
+except Exception:
+    pass
+
 # ── Helper functions ──
 def auto_chart(df: pd.DataFrame):
     if len(df) < 2 or len(df.columns) < 2:
