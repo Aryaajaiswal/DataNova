@@ -499,10 +499,15 @@ def get_theme_css(theme):
         color: #fff !important;
         border: none !important;
         border-radius: 14px !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.02em !important;
     }}
     button[kind="primary"]:hover {{
         transform: translateY(-2px) !important;
         box-shadow: 0 8px 28px var(--glow) !important;
+    }}
+    button[kind="primary"]:active {{
+        transform: translateY(0px) !important;
     }}
 
     /* ── Tags ── */
@@ -784,9 +789,9 @@ st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
 
 # ── Top Navbar ──
 theme_icon = "🌙" if st.session_state.theme == "light" else "☀️"
-nb1, nb2, nb3 = st.columns([3, 16, 1], gap="small")
+nb1, nb2, nb3 = st.columns([3.5, 15.5, 1], gap="small")
 with nb1:
-    st.markdown('<div class="brand-text" style="font-family:Syne,sans-serif;font-weight:800;font-size:1.4rem;background:linear-gradient(90deg,var(--accent),var(--accent2),#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;"> DataNova</div>', unsafe_allow_html=True)
+    st.markdown('<div class="brand-text" style="font-family:Syne,sans-serif;font-weight:800;font-size:1.4rem;padding-left:0.5rem;background:linear-gradient(90deg,var(--accent),var(--accent2),#e879f9);-webkit-background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;">DataNova</div>', unsafe_allow_html=True)
 with nb3:
     if st.button(theme_icon, key="theme_toggle_nav", help="Toggle theme"):
         st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
@@ -1061,14 +1066,19 @@ if not has_data:
     hero_col1, hero_col2, hero_col3 = st.columns([1, 2, 1])
     with hero_col2:
         st.markdown(f'''
-        <div style="text-align:center;padding:2rem 1rem;">
+        <div style="text-align:center;padding:2rem 1rem 0.5rem;">
             <div style="font-family:'Syne',sans-serif;font-size:2.8rem;font-weight:800;
                         background:linear-gradient(135deg,{DARK_VARS["accent"]},{DARK_VARS["accent2"]},#e879f9);
                         -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
                         margin-bottom:0.5rem;">DataNova</div>
-            <p style="font-size:1.1rem;color:var(--text2);max-width:500px;margin:0 auto 1.5rem;line-height:1.6;">
-                AI-Powered Autonomous Business Intelligence Platform<br>
-                <span style="font-size:0.9rem;">Upload data, ask questions in natural language, and generate dashboards, insights, and executive summaries instantly.</span>
+            <p style="font-size:1.1rem;color:var(--text2);max-width:500px;margin:0 auto 1rem;line-height:1.7;">
+                AI-Powered Autonomous Business Intelligence Platform
+            </p>
+            <p style="font-size:0.9rem;color:var(--text2);opacity:0.7;max-width:420px;margin:0 auto 1.5rem;line-height:1.6;">
+                Upload data, ask questions in natural language, and generate dashboards, insights, and executive summaries instantly.
+            </p>
+            <p style="font-size:0.85rem;color:var(--accent);font-weight:600;margin-bottom:1.2rem;letter-spacing:0.05em;">
+                Upload → Ask → Analyze → Visualize
             </p>
         </div>
         ''', unsafe_allow_html=True)
@@ -1080,7 +1090,29 @@ if not has_data:
             if st.button("✨ Try Demo Dataset", width='stretch', key="hero_demo"):
                 st.session_state["load_demo"] = True
                 st.rerun()
-    st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
+
+    # Feature cards row
+    fc1, fc2, fc3 = st.columns(3, gap="small")
+    with fc1:
+        st.markdown(f'''<div style="text-align:center;padding:1.2rem 0.5rem;background:var(--card);border:1px solid var(--card-border);border-radius:18px;">
+            <div style="font-size:2rem;margin-bottom:0.3rem;">🧠</div>
+            <div style="font-weight:600;font-size:0.85rem;">AI SQL Generation</div>
+            <div style="font-size:0.7rem;color:var(--text2);margin-top:0.2rem;">Natural language to queries</div>
+        </div>''', unsafe_allow_html=True)
+    with fc2:
+        st.markdown(f'''<div style="text-align:center;padding:1.2rem 0.5rem;background:var(--card);border:1px solid var(--card-border);border-radius:18px;">
+            <div style="font-size:2rem;margin-bottom:0.3rem;">📊</div>
+            <div style="font-weight:600;font-size:0.85rem;">Auto Dashboards</div>
+            <div style="font-size:0.7rem;color:var(--text2);margin-top:0.2rem;">KPIs, charts, insights</div>
+        </div>''', unsafe_allow_html=True)
+    with fc3:
+        st.markdown(f'''<div style="text-align:center;padding:1.2rem 0.5rem;background:var(--card);border:1px solid var(--card-border);border-radius:18px;">
+            <div style="font-size:2rem;margin-bottom:0.3rem;">⚡</div>
+            <div style="font-weight:600;font-size:0.85rem;">Executive Insights</div>
+            <div style="font-size:0.7rem;color:var(--text2);margin-top:0.2rem;">AI-powered summaries</div>
+        </div>''', unsafe_allow_html=True)
+
+    st.markdown('<div style="height:0.5rem;"></div>', unsafe_allow_html=True)
 
 # ── Tabs (instant, no rerun) ──
 tab_chat, tab_data, tab_dash = st.tabs(["💬 Chat", "📁 Data", "📊 Dashboard"])
