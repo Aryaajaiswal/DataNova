@@ -396,12 +396,13 @@ def test_sql_execution(state: GraphState) -> GraphState:
     """Validate SQL query syntax AND catch runtime errors (LIMIT 0)."""
     db = DatabaseConnector(state["db_url"], timeout=10)
     from sqlalchemy import text as sa_text
+    sql = state['sql_query'].rstrip('; \t\n\r')
     try:
         with db.engine.connect() as conn:
-            conn.execute(sa_text(f"EXPLAIN QUERY PLAN {state['sql_query']}"))
+            conn.execute(sa_text(f"EXPLAIN QUERY PLAN {sql}"))
         try:
             with db.engine.connect() as conn:
-                conn.execute(sa_text(f"SELECT * FROM ({state['sql_query']}) _sub LIMIT 0"))
+                conn.execute(sa_text(f"SELECT * FROM ({sql}) _sub LIMIT 0"))
         except Exception as runtime_exc:
             return {**state, "error_message": str(runtime_exc), "retry_count": state.get("retry_count", 0) + 1}
         return {**state, "error_message": ""}
