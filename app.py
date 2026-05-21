@@ -259,6 +259,23 @@ def get_theme_css(theme):
     #top-nav-wrapper .theme-btn:hover {{
         box-shadow: 0 0 12px var(--glow);
     }}
+    #top-nav-wrapper .theme-btn:hover {{
+        box-shadow: 0 0 12px var(--glow);
+    }}
+    /* Theme toggle button positioned as navbar element */
+    .stButton > button[key="theme_toggle_nav"] {{
+        font-size: 1.05rem !important;
+        padding: 0.25rem 0.5rem !important;
+        border-radius: 12px !important;
+        border: 1px solid var(--card-border) !important;
+        background: var(--input-bg) !important;
+        min-width: unset !important;
+        width: auto !important;
+        box-shadow: none !important;
+        margin-top: -2.4rem !important;
+        margin-left: auto !important;
+        display: block !important;
+    }
     @keyframes gradient-shift {{
         0% {{ background-position: 0% center; }}
         50% {{ background-position: 100% center; }}
@@ -732,24 +749,15 @@ st.markdown(f'''
 <div id="top-nav-wrapper">
   <span class="brand-text"> DataNova</span>
   <span style="flex:1"></span>
-  <a href="javascript:void(0)" id="theme-toggle-link" class="theme-btn">{theme_icon}</a>
 </div>
-<script>
-document.getElementById('theme-toggle-link').addEventListener('click', function(e) {{
-    e.preventDefault();
-    var url = new URL(window.location);
-    url.searchParams.set('theme', 'toggle');
-    window.location.href = url.toString();
-}});
-</script>
 ''', unsafe_allow_html=True)
 
-# Handle theme toggle via query param
-params = st.query_params
-if "theme" in params:
-    st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
-    st.query_params.clear()
-    st.rerun()
+# Theme toggle as inline Streamlit button (reliable, no JS redirect)
+nav_spacer, nav_theme = st.columns([20, 1])
+with nav_theme:
+    if st.button(theme_icon, key="theme_toggle_nav", help="Toggle theme"):
+        st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+        st.rerun()
 
 # ── Helper functions ──
 def auto_chart(df: pd.DataFrame):
