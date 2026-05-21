@@ -15,6 +15,9 @@ BLOCKED_KEYWORDS = [
     r'\bPRAGMA\b',
 ]
 
+# Default page size for query results
+DEFAULT_PAGE_SIZE = 500
+
 class DatabaseConnector:
     def __init__(self, db_url: str, timeout: int = 30):
         self.db_url = db_url
@@ -60,10 +63,24 @@ class DatabaseConnector:
         return True
 
     def execute_query(self, sql: str) -> pd.DataFrame:
-        """Executes a read-only SQL query with security checks."""
+        """Executes a read-only SQL query with security checks, timeout, and pagination."""
         if not self._is_query_safe(sql):
             raise ValueError("Only SELECT queries are allowed for security reasons.")
+        # Apply pagination to prevent runaway queries
+        upper = sql.strip().upper()
+        if not upper.startswith("SELECT"):
+            raise ValueError("Only SELECT queries are allowed.")
+        if "LIMIT" not in upper:
+            sql = sql.rstrip(";") + f" LIMIT {DEFAULT_PAGE_SIZE}"
         return pd.read_sql(sql, self.engine)
+
+    def execute_query_paginated(self, sql: str, page: int = 1, page_size: int = DEFAULT_PAGE_SIZE) -> pd.DataFrame:
+        """Execute query with explicit pagination support."""
+        if not self._is_query_safe(sql):
+            raise ValueError("Only SELECT queries are allowed for security reasons.")
+        offset = (page - 1) * page_size
+        wrapped = f"SELECT * FROM ({sql.rstrip(';')}) _pagination LIMIT {page_size} OFFSET {offset}"
+        return pd.read_sql(wrapped, self.engine)
 
     def upload_dataframe(self, df: pd.DataFrame, table_name: str) -> None:
         df.to_sql(table_name, self.engine, if_exists="replace", index=False)

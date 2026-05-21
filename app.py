@@ -13,7 +13,7 @@ import streamlit as st
 from sqlalchemy import inspect
 from fpdf import FPDF
 
-from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, build_generation_graph, build_execution_graph
+from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, build_generation_graph, build_execution_graph
 from setup_db import create_database, DB_PATH, register_upload
 from database import DatabaseConnector
 
@@ -1173,6 +1173,11 @@ with tab_data:
                             dbc.upload_dataframe(df_preview, tn)
                             register_upload(tn, url, len(df_preview))
                             st.success(f"Table '{tn}' created!")
+                            with st.spinner("Analyzing data insights..."):
+                                insights = analyze_data_insights(df_preview, tn, db_url_input)
+                            with st.expander("💡 Data Insights", expanded=True):
+                                for ins in insights:
+                                    st.markdown(ins)
                             get_cached_tables.clear()
                             get_cached_schema.clear()
                             st.session_state["cached_questions"].pop(db_url_input, None)
@@ -1207,6 +1212,11 @@ with tab_data:
                     dbc.upload_dataframe(df_preview, ftn)
                     register_upload(ftn, uploaded_file.name, len(df_preview))
                     st.success(f"Table '{ftn}' created!")
+                    with st.spinner("Analyzing data insights..."):
+                        insights = analyze_data_insights(df_preview, ftn, db_url_input)
+                    with st.expander("💡 Data Insights", expanded=True):
+                        for ins in insights:
+                            st.markdown(ins)
                     get_cached_tables.clear()
                     get_cached_schema.clear()
                     st.session_state["cached_questions"].pop(db_url_input, None)

@@ -393,19 +393,20 @@ def generate_chart_spec(state: GraphState) -> GraphState:
 
 # ── Build Graph for Generation (Pauses before execution) ──────────────────────
 def test_sql_execution(state: GraphState) -> GraphState:
-    """Validate SQL query syntax without running it (parses with SQLAlchemy)."""
-    db = DatabaseConnector(state["db_url"])
+    """Validate SQL query syntax AND catch runtime errors (LIMIT 0)."""
+    db = DatabaseConnector(state["db_url"], timeout=10)
     from sqlalchemy import text as sa_text
     try:
         with db.engine.connect() as conn:
             conn.execute(sa_text(f"EXPLAIN QUERY PLAN {state['sql_query']}"))
+        try:
+            with db.engine.connect() as conn:
+                conn.execute(sa_text(f"SELECT * FROM ({state['sql_query']}) _sub LIMIT 0"))
+        except Exception as runtime_exc:
+            return {**state, "error_message": str(runtime_exc), "retry_count": state.get("retry_count", 0) + 1}
         return {**state, "error_message": ""}
     except Exception as exc:
-        return {
-            **state,
-            "error_message": str(exc),
-            "retry_count": state.get("retry_count", 0) + 1
-        }
+        return {**state, "error_message": str(exc), "retry_count": state.get("retry_count", 0) + 1}
 
 def build_generation_graph() -> StateGraph:
     """Graph to generate SQL and auto-correct (Step 1 of HITL)"""
@@ -792,6 +793,53 @@ def auto_generate_dashboard(table_name: str, db_url: str) -> dict:
         dashboard["summary"] = f"Summary generation failed: {e}"
 
     return dashboard
+
+
+def analyze_data_insights(df, table_name, db_url):
+    """Run basic statistical analysis on uploaded data and return insights."""
+    insights = []
+    n_rows = len(df)
+    n_cols = len(df.columns)
+    
+    # Null analysis
+    null_counts = df.isnull().sum()
+    high_null_cols = null_counts[null_counts > n_rows * 0.2]
+    for col in high_null_cols.index:
+        pct = int(null_counts[col] / n_rows * 100)
+        insights.append(f"⚠️ **{col}** has {pct}% missing values — consider cleaning or imputing.")
+    
+    # Duplicate analysis
+    dupes = df.duplicated().sum()
+    if dupes > n_rows * 0.05:
+        insights.append(f"🔁 {dupes:,} duplicate rows found ({dupes/n_rows*100:.0f}%) — may skew aggregations.")
+    
+    # Numeric outlier detection
+    num_cols = df.select_dtypes(include=["int64", "float64"]).columns
+    for col in num_cols:
+        q1, q3 = df[col].quantile(0.25), df[col].quantile(0.75)
+        iqr = q3 - q1
+        outliers = ((df[col] < q1 - 1.5 * iqr) | (df[col] > q3 + 1.5 * iqr)).sum()
+        if outliers > n_rows * 0.02:
+            insights.append(f"📊 **{col}** has {outliers} outlier rows ({outliers/n_rows*100:.0f}%) — check for data entry errors.")
+    
+    # Categorical cardinality
+    cat_cols = df.select_dtypes(include=["object", "category"]).columns
+    for col in cat_cols:
+        n_unique = df[col].nunique()
+        if n_unique > 50:
+            insights.append(f"🏷️ **{col}** has {n_unique} unique values — high cardinality column.")
+        elif n_unique <= 3 and n_unique > 0:
+            insights.append(f"🎯 **{col}** has only {n_unique} distinct values ({df[col].dropna().unique().tolist()}) — good filter candidate.")
+    
+    # Trend detection on date columns
+    date_cols = df.select_dtypes(include=["datetime64"]).columns
+    for col in date_cols:
+        insights.append(f"📅 **{col}** is a date column — time-series analysis available.")
+    
+    if not insights:
+        insights.append(f"✅ No anomalies detected in **{table_name}** ({n_rows:,} rows, {n_cols} columns).")
+    
+    return insights
 
 
 def generate_sample_questions(db_url: str) -> list[str]:
