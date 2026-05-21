@@ -1,0 +1,25 @@
+item_name,category,price,quantity_sold,order_date
+Margherita Pizza,Pizza,12.99,45,2025-01-15
+Pepperoni Pizza,Pizza,14.99,62,2025-01-15
+Caesar Salad,Salad,9.99,30,2025-01-15
+BBQ Burger,Burger,11.99,38,2025-01-15
+Chicken Wings,Appetizer,8.99,55,2025-01-15
+Margherita Pizza,Pizza,12.99,52,2025-02-15
+Pepperoni Pizza,Pizza,14.99,71,2025-02-15
+Caesar Salad,Salad,9.99,28,2025-02-15
+BBQ Burger,Burger,11.99,42,2025-02-15
+Chicken Wings,Appetizer,8.99,60,2025-02-15
+Margherita Pizza,Pizza,12.99,48,2025-03-15
+Pepperoni Pizza,Pizza,14.99,58,2025-03-15
+Caesar Salad,Salad,9.99,35,2025-03-15
+BBQ Burger,Burger,11.99,44,2025-03-15
+Chicken Wings,Appetizer,8.99,63,2025-03-15
+Spaghetti Carbonara,Pasta,13.99,33,2025-03-15
+Spaghetti Carbonara,Pasta,13.99,41,2025-02-15
+Spaghetti Carbonara,Pasta,13.99,37,2025-01-15
+Garlic Bread,Appetizer,5.99,70,2025-01-15
+Garlic Bread,Appetizer,5.99,68,2025-02-15
+Garlic Bread,Appetizer,5.99,74,2025-03-15
+Tiramisu,Dessert,7.99,25,2025-01-15
+Tiramisu,Dessert,7.99,30,2025-02-15
+Tiramisu,Dessert,7.99,28,2025-03-15
