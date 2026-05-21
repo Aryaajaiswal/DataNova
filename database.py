@@ -66,8 +66,8 @@ class DatabaseConnector:
         """Executes a read-only SQL query with security checks, timeout, and pagination."""
         if not self._is_query_safe(sql):
             raise ValueError("Only SELECT queries are allowed for security reasons.")
-        # Apply pagination to prevent runaway queries
-        upper = sql.strip().upper()
+        stripped_sql = re.sub(r'--.*?$|/\*.*?\*/', '', sql, flags=re.MULTILINE | re.DOTALL).strip()
+        upper = stripped_sql.upper()
         if not upper.startswith("SELECT"):
             raise ValueError("Only SELECT queries are allowed.")
         if "LIMIT" not in upper:

@@ -1,0 +1,19 @@
+services:
+  datanova:
+    build: .
+    container_name: datanova
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    volumes:
+      - datanova_data:/app/datanova.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  datanova_data:

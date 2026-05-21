@@ -14,7 +14,7 @@ from sqlalchemy import inspect
 from fpdf import FPDF
 
 from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, build_generation_graph, build_execution_graph
-from setup_db import create_database, DB_PATH, register_upload
+from setup_db import create_database, DB_PATH, register_upload, register_query_log, get_query_log
 from database import DatabaseConnector
 
 # ── Page config ──
@@ -186,6 +186,39 @@ def get_theme_css(theme):
     }}
     section[data-testid="stSidebar"] hr {{
         margin: 0.6rem 0 !important;
+    }}
+
+    /* ── Sidebar collapse / re-open toggle ── */
+    button[data-testid="baseButton-header"] {{
+        font-size: 1.3rem !important;
+        background: var(--card) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 12px !important;
+        padding: 0.2rem 0.5rem !important;
+        box-shadow: 0 2px 8px var(--shadow) !important;
+        transition: all 0.2s !important;
+        opacity: 1 !important;
+    }}
+    button[data-testid="baseButton-header"]:hover {{
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 16px var(--glow) !important;
+    }}
+    /* Re-open arrow when sidebar is collapsed */
+    .stSidebarCollapsedButton {{
+        font-size: 1.5rem !important;
+        background: var(--card) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 12px !important;
+        padding: 0.4rem 0.65rem !important;
+        margin: 0.5rem !important;
+        box-shadow: 0 4px 16px var(--shadow) !important;
+        opacity: 1 !important;
+        transition: all 0.2s !important;
+    }}
+    .stSidebarCollapsedButton:hover {{
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 20px var(--glow) !important;
+        transform: scale(1.05);
     }}
 
     /* ── Top Nav ── */
@@ -788,7 +821,7 @@ def sanitize_table_name(name: str) -> str:
         name = "uploaded_data"
     return name
 
-def _apply_filter(sql: str, table: str, filt: tuple) -> str:
+def _apply_filter(sql: str, filt: tuple) -> str:
     if not filt:
         return sql
     col, _ = filt
@@ -876,57 +909,6 @@ def get_generation_graph():
 def get_execution_graph():
     return build_execution_graph()
 
-def run_generation_cached(question: str, history: list, db_url: str, data_dictionary: str = "") -> dict:
-    """Cached wrapper for run_generation that reuses the compiled graph."""
-    graph = get_generation_graph()
-    initial_state = {
-        "db_url": db_url,
-        "data_dictionary": data_dictionary,
-        "user_question": question,
-        "chat_history": history,
-        "database_schema": "",
-        "is_python_task": False,
-        "python_code": "",
-        "sql_query": "",
-        "sql_explanation": "",
-        "final_result": None,
-        "chart_spec": None,
-        "error_message": "",
-        "retry_count": 0,
-    }
-    result = graph.invoke(initial_state)
-    return {
-        "is_python_task": result.get("is_python_task", False),
-        "python_code": result.get("python_code", ""),
-        "sql_query": result.get("sql_query", ""),
-        "sql_explanation": result.get("sql_explanation", ""),
-        "error_message": result.get("error_message", ""),
-    }
-
-def run_execution_cached(sql: str, db_url: str, is_python_task: bool = False, python_code: str = "") -> dict:
-    """Cached wrapper for run_execution that reuses the compiled graph."""
-    graph = get_execution_graph()
-    initial_state = {
-        "db_url": db_url,
-        "sql_query": sql,
-        "is_python_task": is_python_task,
-        "python_code": python_code,
-        "database_schema": "",
-        "data_dictionary": "",
-        "user_question": "",
-        "chat_history": [],
-        "final_result": None,
-        "chart_spec": None,
-        "error_message": "",
-        "retry_count": 0,
-    }
-    result = graph.invoke(initial_state)
-    return {
-        "final_result": result.get("final_result"),
-        "chart_spec": result.get("chart_spec"),
-        "error_message": result.get("error_message", ""),
-    }
-
 # ── Sidebar ──
 with st.sidebar:
     st.markdown('<p class="section-title" style="font-size:0.85rem;">🔌 Connection</p>', unsafe_allow_html=True)
@@ -938,6 +920,7 @@ with st.sidebar:
     else:
         st.markdown('<div class="error-box">✗ Connection failed</div>', unsafe_allow_html=True)
 
+    st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
     st.markdown('<p class="section-title" style="font-size:0.85rem;">📂 Tables</p>', unsafe_allow_html=True)
     if is_connected:
         tables = get_cached_tables(db_url_input)
@@ -952,6 +935,7 @@ with st.sidebar:
     else:
         st.markdown('<div class="empty-state" style="padding:0.75rem;"><p style="color:var(--text2);font-size:0.8rem;"> Not connected</p></div>', unsafe_allow_html=True)
 
+    st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
     with st.expander("📖 Data Dictionary", expanded=False):
         data_dictionary = st.text_area("Business rules", "", height=100,
             placeholder="Revenue = price * quantity\nActive users = logged in within 30 days")
@@ -960,9 +944,8 @@ with st.sidebar:
         tables = get_cached_tables(db_url_input)
         user_tables = [t for t in tables if not t.startswith("_")]
         if user_tables:
+            st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
             st.markdown('<p class="section-title" style="font-size:0.85rem;">💡 Questions</p>', unsafe_allow_html=True)
-            if "cached_questions" not in st.session_state:
-                st.session_state["cached_questions"] = {}
             if db_url_input not in st.session_state["cached_questions"]:
                 with st.spinner("Generating..."):
                     qs = generate_sample_questions(db_url_input)
@@ -970,6 +953,37 @@ with st.sidebar:
             for qi, q in enumerate(st.session_state["cached_questions"].get(db_url_input, [])[:5]):
                 if st.button(q, width='stretch', key=f"sidebar_sq_{qi}"):
                     st.session_state["prefill"] = q
+
+    # ── Multi-Connection Manager ──
+    if is_connected and user_tables:
+        st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
+        with st.expander("🔗 Saved Connections", expanded=False):
+            if "saved_connections" not in st.session_state:
+                st.session_state.saved_connections = {}
+            conn_name = st.text_input("Connection name", placeholder="My DB", label_visibility="collapsed", key="conn_name_input")
+            if conn_name and st.button("Save Current", key="save_conn"):
+                st.session_state.saved_connections[conn_name] = db_url_input
+                st.toast(f"Saved '{conn_name}'")
+            if st.session_state.saved_connections:
+                sel_conn = st.selectbox("Switch to", [""] + list(st.session_state.saved_connections.keys()), key="conn_switch")
+                if sel_conn:
+                    st.session_state["db_url_input"] = st.session_state.saved_connections[sel_conn]
+                    st.session_state["conn_switch"] = ""
+                    st.rerun()
+
+    # ── Audit Log (collapsible) ──
+    if is_connected:
+        st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
+        with st.expander("📋 Query Audit Log", expanded=False):
+            log_entries = get_query_log(20)
+            if log_entries:
+                for entry in log_entries[:10]:
+                    eid, q, qtype, umsg, rc, err, dur, ts = entry
+                    label = f"`{q[:50]}{'...' if len(q)>50 else ''}`"
+                    status = "✅" if not err else "❌"
+                    st.markdown(f"{status} {label}  _{dur}ms_  `{ts}`", unsafe_allow_html=True)
+            else:
+                st.markdown('<div class="empty-state" style="padding:0.5rem;"><p style="color:var(--text2);font-size:0.75rem;">No queries yet</p></div>', unsafe_allow_html=True)
 
     st.markdown('<div style="font-size:0.7rem;color:var(--text2);text-align:center;margin-top:1rem;">⚡ DataNova · LangGraph · Groq</div>', unsafe_allow_html=True)
 
@@ -1031,7 +1045,7 @@ with tab_chat:
                         value=code_val,
                         height=140,
                         label_visibility="collapsed",
-                        key=f"edit_code_{id(last_msg)}"
+                        key=f"edit_code_{len(st.session_state.messages) - 1}"
                     )
                     
                     btn_col1, btn_col2, btn_col3 = st.columns([3, 1.5, 1], gap="small")
@@ -1051,6 +1065,15 @@ with tab_chat:
                             last_msg["df"] = exec_res.get("final_result")
                             last_msg["chart_spec"] = exec_res.get("chart_spec")
                             last_msg["error"] = exec_res.get("error_message")
+                            duration = int((time.time() - t0) * 1000)
+                            register_query_log(
+                                query=edited_code,
+                                query_type="python" if is_python else "sql",
+                                user_message=st.session_state.messages[-2]["content"] if len(st.session_state.messages) >= 2 else "",
+                                row_count=len(exec_res.get("final_result", [])) if exec_res.get("final_result") is not None else 0,
+                                error=exec_res.get("error_message", ""),
+                                duration_ms=duration
+                            )
                             st.rerun()
                     with btn_col2:
                         if st.button("📋 Copy", width='stretch', key="exec_copy"):
@@ -1110,17 +1133,32 @@ with tab_chat:
                         st.dataframe(df, width='stretch', height=200)
                     csv = df.to_csv(index=False)
                     st.download_button("📥 CSV", csv, f"export_{int(time.time())}.csv", "text/csv", width='stretch')
-                    if st.button("📌 Pin", width='stretch'):
-                        q = ""
-                        for m in reversed(st.session_state.messages[:-1]):
-                            if m["role"] == "user":
-                                q = m["content"]; break
-                        st.session_state.pinned_charts.append({
-                            "id": str(uuid.uuid4()), "question": q,
-                            "sql": last.get("python_code") if last.get("is_python_task") else last.get("sql"),
-                            "df": df, "chart_spec": last.get("chart_spec")
-                        })
-                        st.toast("Pinned!")
+                    bc1, bc2 = st.columns(2)
+                    with bc1:
+                        if st.button("📌 Pin", width='stretch'):
+                            q = ""
+                            for m in reversed(st.session_state.messages[:-1]):
+                                if m["role"] == "user":
+                                    q = m["content"]; break
+                            st.session_state.pinned_charts.append({
+                                "id": str(uuid.uuid4()), "question": q,
+                                "sql": last.get("python_code") if last.get("is_python_task") else last.get("sql"),
+                                "df": df, "chart_spec": last.get("chart_spec")
+                            })
+                            st.toast("Pinned!")
+                    with bc2:
+                        if st.button("📊 Dashboard", width='stretch', key="create_dash_from_result"):
+                            dash = {
+                                "title": "Chat Dashboard",
+                                "table_name": "",
+                                "kpis": [{"label": "Rows", "value": len(df), "format": "number", "icon": "📊"}],
+                                "charts": [{"title": "Result Chart", "df": df, "type": (last.get("chart_spec") or {}).get("type", "bar"), "x": (last.get("chart_spec") or {}).get("x", df.columns[0]), "y": (last.get("chart_spec") or {}).get("y", df.columns[1] if len(df.columns) > 1 else df.columns[0]), "is_main": True, "sql": ""}],
+                                "summary": "Auto-generated from chat result.",
+                                "suggested_questions": []
+                            }
+                            st.session_state.auto_dashboards["Chat Dashboard"] = dash
+                            st.session_state.selected_dashboard = "Chat Dashboard"
+                            st.toast("Dashboard created! Switch to 📊 Dashboard tab.")
                 elif df is not None and len(df) == 0:
                     st.markdown('<div class="info-box">ℹ Query returned 0 rows</div>', unsafe_allow_html=True)
                 elif last.get("error"):
@@ -1241,6 +1279,42 @@ with tab_data:
                 try:
                     dft = dbc.execute_query(f"SELECT * FROM [{t}] LIMIT 50")
                     st.dataframe(dft, width='stretch')
+                    prof_tab, col_tab = st.tabs(["📊 Profile", "🔬 Columns"])
+                    with prof_tab:
+                        if st.button(f"Run Profile on {t}", key=f"prof_{t}"):
+                            with st.spinner("Profiling..."):
+                                dft_full = dbc.execute_query(f"SELECT * FROM [{t}]")
+                                prof_stats = {}
+                                for col in dft_full.columns:
+                                    s = dft_full[col]
+                                    entry = {"dtype": str(s.dtype), "nulls": int(s.isna().sum()), "null_pct": round(s.isna().mean() * 100, 1), "unique": int(s.nunique())}
+                                    if pd.api.types.is_numeric_dtype(s):
+                                        entry.update({"min": round(float(s.min()), 2), "max": round(float(s.max()), 2), "mean": round(float(s.mean()), 2), "median": round(float(s.median()), 2), "std": round(float(s.std()), 2)})
+                                    prof_stats[col] = entry
+                                st.session_state[f"_prof_{t}"] = prof_stats
+                                st.session_state[f"_numcols_{t}"] = [c for c in dft_full.columns if pd.api.types.is_numeric_dtype(dft_full[c])]
+                                st.session_state[f"_dft_{t}"] = dft_full
+                        prof_stats = st.session_state.get(f"_prof_{t}")
+                        if prof_stats:
+                            dft_full = st.session_state.get(f"_dft_{t}")
+                            prof_df = pd.DataFrame(prof_stats).T
+                            st.dataframe(prof_df, width='stretch')
+                            num_cols = st.session_state.get(f"_numcols_{t}", [])
+                            if len(num_cols) >= 2 and dft_full is not None:
+                                st.markdown("##### 🔥 Correlation Heatmap")
+                                corr = dft_full[num_cols].corr()
+                                fig = px.imshow(corr, text_auto=".2f", color_continuous_scale="RdBu_r", aspect="auto", height=400)
+                                fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", font=dict(color="var(--text2)"))
+                                st.plotly_chart(fig, use_container_width=True, key=f"corr_{t}")
+                            hist_cols = st.multiselect("Histograms", num_cols, default=num_cols[:min(3, len(num_cols))], key=f"hist_sel_{t}")
+                            if hist_cols and dft_full is not None:
+                                for hc in hist_cols:
+                                    fig_h = px.histogram(dft_full, x=hc, title=hc, height=250)
+                                    fig_h.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)", font=dict(color="var(--text2)"))
+                                    st.plotly_chart(fig_h, use_container_width=True, key=f"hist_{t}_{hc}")
+                    with col_tab:
+                        cols_info = dbc.get_table_schema(t)
+                        st.json(cols_info)
                 except Exception as e:
                     st.error(str(e))
     else:
@@ -1274,7 +1348,7 @@ with tab_dash:
         if dash.get("error"):
             st.markdown(f'<div class="error-box">⚠ {dash["error"]}</div>', unsafe_allow_html=True)
 
-        db_dash = db_conn()
+        db_dash = get_cached_connector(db_url_input)
         table_name = dash.get("table_name", selected)
 
         # ── Always-visible Filters ──
@@ -1284,8 +1358,8 @@ with tab_dash:
             for col in inspector.get_columns(table_name):
                 if str(col["type"]).upper() in ("TEXT", "VARCHAR"):
                     filter_cols.append(col["name"])
-        except Exception:
-            pass
+        except Exception as e:
+            st.warning(f"Inspector error: {e}")
 
         active_filter = None
         if filter_cols:
@@ -1299,8 +1373,8 @@ with tab_dash:
                         sel = st.selectbox(fc, opts, key=f"f_{selected}_{fc}", label_visibility="collapsed")
                         if sel != "All":
                             active_filter = (fc, sel)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        st.warning(f"Filter load error: {e}")
 
         # ── KPI Row ──
         if dash.get("kpis"):
@@ -1310,7 +1384,7 @@ with tab_dash:
                 if active_filter and kpi.get("sql"):
                     try:
                         fcol, fval = active_filter
-                        df_k = pd.read_sql(_apply_filter(kpi["sql"], table_name, active_filter), db_dash.engine, params={"fv": fval})
+                        df_k = pd.read_sql(_apply_filter(kpi["sql"], active_filter), db_dash.engine, params={"fv": fval})
                         val = round(float(df_k.iloc[0, 0]), 2) if df_k is not None and len(df_k) > 0 else None
                     except Exception:
                         val = kpi.get("value")

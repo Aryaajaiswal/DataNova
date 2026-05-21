@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import re
 import json
+import concurrent.futures
 from typing import TypedDict, Literal
 
 import pandas as pd
@@ -103,7 +104,8 @@ def classify_intent(state: GraphState) -> GraphState:
         )
         parsed = json.loads(res.choices[0].message.content)
         return {**state, "is_python_task": parsed.get("is_python", False)}
-    except Exception:
+    except Exception as e:
+        print(f"classify_intent failed: {e}")
         return {**state, "is_python_task": False}
 
 # ── Node 2A : Python Code Generation ─────────────────────────────────────────
@@ -219,21 +221,8 @@ def generate_sql(state: GraphState) -> GraphState:
 
 
 import ast
-import signal
-import pandas as pd
-import plotly.express as px
-from groq import Groq
-from langgraph.graph import StateGraph, END
-from typing import TypedDict, Optional, Any
-from database import DatabaseConnector
 
 # ── Safe Python Execution ───────────────────────────────────────────────────
-DANGEROUS_NODES = (
-    ast.Import, ast.ImportFrom, ast.Call, ast.Attribute,
-    ast.Subscript, ast.Await, ast.AsyncFor, ast.AsyncWith,
-    ast.Yield, ast.YieldFrom, ast.Global, ast.Nonlocal,
-    ast.Delete, ast.Assert,
-)
 
 ALLOWED_BUILTIN_NAMES = {
     "abs", "all", "any", "bool", "dict", "enumerate", "float",
@@ -282,50 +271,38 @@ def _validate_python_ast(code: str) -> Optional[str]:
     
     return None
 
-class TimeoutError(Exception):
-    pass
-
-def _timeout_handler(signum, frame):
-    raise TimeoutError("Python execution timed out (10s limit)")
-
 def _execute_sandboxed(code: str, db_url: str, timeout: int = 10) -> tuple:
     """Execute Python code in a restricted environment with timeout."""
-    # AST validation first
     error = _validate_python_ast(code)
     if error:
         raise RuntimeError(f"Code validation failed: {error}")
-    
-    # Create restricted environment
+
     allowed_globals = {
         "__builtins__": {name: __builtins__[name] for name in ALLOWED_BUILTIN_NAMES if name in __builtins__},
         "pd": pd,
         "px": px,
         "np": __import__("numpy") if __import__("importlib").util.find_spec("numpy") else None,
     }
-    
+
     local_vars = {}
-    
-    # Set timeout (Unix only, fallback for Windows)
-    if hasattr(signal, "SIGALRM"):
-        old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
-        signal.alarm(timeout)
-    
-    try:
+
+    def _run():
         exec(compile(code, "<sandbox>", "exec"), allowed_globals, local_vars)
-    except TimeoutError:
-        raise RuntimeError("Python execution timed out")
-    finally:
-        if hasattr(signal, "SIGALRM"):
-            signal.alarm(0)
-            signal.signal(signal.SIGALRM, old_handler)
-    
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+        fut = executor.submit(_run)
+        try:
+            fut.result(timeout=timeout)
+        except concurrent.futures.TimeoutError:
+            raise RuntimeError("Python execution timed out")
+
     if "run_analysis" not in local_vars:
         raise RuntimeError("run_analysis function not found in generated code")
-    
+
     result = local_vars["run_analysis"](db_url)
     if not isinstance(result, tuple) or len(result) != 2:
         raise RuntimeError("run_analysis must return (DataFrame, chart_spec)")
-    
+
     return result
 
 # ── Execution Nodes (Used manually via HITL or retries) ──────────────────────
@@ -397,6 +374,8 @@ def test_sql_execution(state: GraphState) -> GraphState:
     db = DatabaseConnector(state["db_url"], timeout=10)
     from sqlalchemy import text as sa_text
     sql = state['sql_query'].rstrip('; \t\n\r')
+    if not db._is_query_safe(sql):
+        return {**state, "error_message": "Query blocked: non-SELECT operations are not allowed.", "retry_count": state.get("retry_count", 0) + 1}
     try:
         with db.engine.connect() as conn:
             conn.execute(sa_text(f"EXPLAIN QUERY PLAN {sql}"))
