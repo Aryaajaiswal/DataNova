@@ -1011,7 +1011,35 @@ with st.sidebar:
             else:
                 st.markdown('<div class="empty-state" style="padding:0.5rem;"><p style="color:var(--text2);font-size:0.75rem;">No queries yet</p></div>', unsafe_allow_html=True)
 
-    st.markdown('<div style="font-size:0.7rem;color:var(--text2);text-align:center;margin-top:1rem;">⚡ DataNova · LangGraph · Groq</div>', unsafe_allow_html=True)
+    st.markdown('<div style="font-size:0.7rem;color:var(--text2);text-align:center;margin-top:1rem;">⚡ Built with LangGraph · Groq · Streamlit · Plotly · SQLAlchemy</div>', unsafe_allow_html=True)
+
+# ── Hero Section (shown when no data loaded) ──
+has_data = bool(st.session_state.auto_dashboards) or bool(st.session_state.pinned_charts)
+if not has_data:
+    st.markdown('<div style="height:2rem;"></div>', unsafe_allow_html=True)
+    hero_col1, hero_col2, hero_col3 = st.columns([1, 2, 1])
+    with hero_col2:
+        st.markdown(f'''
+        <div style="text-align:center;padding:2rem 1rem;">
+            <div style="font-family:'Syne',sans-serif;font-size:2.8rem;font-weight:800;
+                        background:linear-gradient(135deg,{DARK_VARS["accent"]},{DARK_VARS["accent2"]},#e879f9);
+                        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+                        margin-bottom:0.5rem;">DataNova</div>
+            <p style="font-size:1.1rem;color:var(--text2);max-width:500px;margin:0 auto 1.5rem;line-height:1.6;">
+                AI-Powered Autonomous Business Intelligence Platform<br>
+                <span style="font-size:0.9rem;">Upload data, ask questions in natural language, and generate dashboards, insights, and executive summaries instantly.</span>
+            </p>
+        </div>
+        ''', unsafe_allow_html=True)
+        c1, c2 = st.columns(2, gap="medium")
+        with c1:
+            if st.button("📁 Upload Data", width='stretch', type="primary", key="hero_upload"):
+                pass
+        with c2:
+            if st.button("✨ Try Demo Dataset", width='stretch', key="hero_demo"):
+                st.session_state["load_demo"] = True
+                st.rerun()
+    st.markdown('<div style="height:1rem;"></div>', unsafe_allow_html=True)
 
 # ── Tabs (instant, no rerun) ──
 tab_chat, tab_data, tab_dash = st.tabs(["💬 Chat", "📁 Data", "📊 Dashboard"])
@@ -1124,7 +1152,7 @@ with tab_chat:
                 st.markdown(question)
             with st.chat_message("assistant", avatar="⚡"):
                 ai_ph = st.empty()
-                ai_thinking_placeholder(ai_ph, ["🧠 Analyzing schema...", "⚡ Generating SQL...", "🔍 Validating..."])
+                ai_thinking_placeholder(ai_ph, ["🧠 Understanding schema...", "⚡ Generating SQL...", "🔍 Validating query...", "📊 Building response..."])
                 try:
                     gen_res = run_generation(question, st.session_state.messages[:-1], db_url_input, data_dictionary)
                 except Exception as e:
@@ -1199,6 +1227,32 @@ with tab_chat:
 # TAB: DATA
 # ════════════════════════════════════════════════════
 with tab_data:
+    # ── Auto-load demo dataset ──
+    if st.session_state.pop("load_demo", False):
+        demo_path = "sample_restaurant_data.csv"
+        if os.path.exists(demo_path):
+            with st.spinner("Loading demo dataset..."):
+                df_demo = pd.read_csv(demo_path)
+                tn = "restaurant_tips"
+                dbc = get_cached_connector(db_url_input)
+                dbc.upload_dataframe(df_demo, tn)
+                register_upload(tn, demo_path, len(df_demo))
+                st.success(f"Demo dataset loaded: {len(df_demo)} rows")
+                with st.spinner("Analyzing data insights..."):
+                    insights = analyze_data_insights(df_demo, tn, db_url_input)
+                with st.expander("💡 Data Insights", expanded=True):
+                    for ins in insights:
+                        st.markdown(ins)
+                get_cached_tables.clear()
+                get_cached_schema.clear()
+                st.session_state["cached_questions"].pop(db_url_input, None)
+                dash = auto_generate_dashboard(tn, db_url_input)
+                st.session_state.auto_dashboards[tn] = dash
+                st.session_state.selected_dashboard = tn
+                st.rerun()
+        else:
+            st.error("Demo file not found. Upload a CSV manually.")
+
     st.markdown('<p class="section-title">📁 Upload Data</p>', unsafe_allow_html=True)
     with st.expander("🌐 Fetch from URL", expanded=False):
         url = st.text_input("URL to CSV/JSON/Excel", placeholder="https://example.com/data.csv", label_visibility="collapsed")
