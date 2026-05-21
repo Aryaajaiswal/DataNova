@@ -100,8 +100,8 @@ def theme_css():
         position: fixed;
         inset: 0;
         background-image:
-            linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            linear-gradient(rgba(129,140,248,0.06) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(129,140,248,0.06) 1px, transparent 1px);
         background-size: 40px 40px;
         pointer-events: none;
         z-index: 0;
@@ -182,7 +182,7 @@ def theme_css():
         padding-bottom: 0 !important;
     }}
     /* Nav buttons inside the nav row */
-    div[data-testid="stHorizontalBlock"]:has(.brand-text) button {{
+    div[data-testid="stHorizontalBlock"]:has(.brand-text) button:not([key*="theme"]) {{
         background: transparent !important;
         border: none !important;
         color: var(--text2) !important;
@@ -194,9 +194,31 @@ def theme_css():
         min-height: unset !important;
         line-height: 1.4 !important;
     }}
-    div[data-testid="stHorizontalBlock"]:has(.brand-text) button:hover {{
+    div[data-testid="stHorizontalBlock"]:has(.brand-text) button:not([key*="theme"]):hover {{
         background: var(--hover) !important;
         color: var(--text) !important;
+    }}
+    /* Theme toggle button in nav */
+    div[data-testid="stHorizontalBlock"]:has(.brand-text) button[key*="theme"] {{
+        background: var(--card) !important;
+        border: 1px solid var(--card-border) !important;
+        border-radius: 12px !important;
+        font-size: 1.05rem !important;
+        padding: 0.2rem 0.4rem !important;
+        min-height: unset !important;
+        line-height: 1 !important;
+        transition: all 0.2s !important;
+    }}
+    div[data-testid="stHorizontalBlock"]:has(.brand-text) button[key*="theme"]:hover {{
+        background: var(--hover) !important;
+        box-shadow: 0 0 12px var(--glow) !important;
+    }}
+    /* Active nav pills via CSS */
+    .nav-btn.active {{
+        text-align: center; padding: 0.4rem 0; border-radius: 14px;
+        background: linear-gradient(135deg, var(--accent), var(--accent2));
+        color: #fff; font-weight: 600; font-size: 0.82rem;
+        box-shadow: 0 4px 16px var(--glow);
     }}
 
     /* ── Glass KPI Cards ── */
@@ -307,7 +329,7 @@ def theme_css():
 
     /* ── SQL / Code box ── */
     .sql-box {{
-        background: rgba(15,23,42,0.5);
+        background: var(--input-bg);
         backdrop-filter: blur(8px);
         border: 1px solid var(--card-border);
         border-left: 3px solid var(--accent);
@@ -387,9 +409,12 @@ def theme_css():
         border-left: 3px solid;
         backdrop-filter: blur(8px);
     }}
-    .error-box {{ background: rgba(239,68,68,0.1); border-color: #ef4444; color: #fca5a5; }}
-    .success-box {{ background: rgba(34,197,94,0.1); border-color: #22c55e; color: #86efac; }}
-    .info-box {{ background: rgba(59,130,246,0.1); border-color: #3b82f6; color: #93c5fd; }}
+    .error-box {{ background: rgba(239,68,68,0.12); border-color: #ef4444; color: #fca5a5; }}
+    .success-box {{ background: rgba(34,197,94,0.12); border-color: #22c55e; color: #86efac; }}
+    .info-box {{ background: rgba(59,130,246,0.12); border-color: #3b82f6; color: #93c5fd; }}
+    .error-box, .success-box, .info-box {{
+        color: var(--text) !important;
+    }}
 
     /* ── Divider ── */
     hr {{
@@ -606,16 +631,13 @@ for i, (label, key) in enumerate(zip(nav_pages, nav_keys)):
     with ncol[i + 1]:
         is_active = st.session_state.active_page == key
         if is_active:
-            st.markdown(f'<div class="nav-btn active" style="text-align:center;padding:0.4rem 0;border-radius:14px;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;font-weight:600;font-size:0.82rem;box-shadow:0 4px 16px var(--glow);">{label}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="nav-btn active">{label}</div>', unsafe_allow_html=True)
         else:
             if st.button(label, key=f"nav_{key}", use_container_width=True):
                 st.session_state.active_page = key
                 st.rerun()
 with ncol[-1]:
-    th = st.empty()
-    with th.container():
-        st.markdown(f'<div style="text-align:center;">{theme_icon}</div>', unsafe_allow_html=True)
-    if st.button(" ", key="nav_theme", help="Toggle dark/light"):
+    if st.button(theme_icon, key="nav_theme", help="Toggle dark/light"):
         st.session_state.theme = "dark" if st.session_state.theme == "light" else "light"
         st.rerun()
 
@@ -635,14 +657,15 @@ def auto_chart(df: pd.DataFrame):
 
 def _apply_chart_layout(fig):
     chart_bg = "rgba(15,23,42,0.3)" if st.session_state.theme == "dark" else "rgba(248,250,255,0.5)"
+    legend_bg = "rgba(0,0,0,0.3)" if st.session_state.theme == "dark" else "rgba(255,255,255,0.8)"
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
-        plot_bgcolor=st.session_state.get("_chart_bg", "rgba(15,23,42,0.3)"),
+        plot_bgcolor=chart_bg,
         font_family="Inter", font_size=11,
         margin=dict(l=0, r=0, t=32, b=0),
         hovermode="x unified",
         showlegend=True,
-        legend=dict(bgcolor="rgba(0,0,0,0.3)", bordercolor="rgba(129,140,248,0.2)", borderwidth=1),
+        legend=dict(bgcolor=legend_bg, bordercolor="rgba(129,140,248,0.2)", borderwidth=1),
         dragmode=False,
     )
     fig.update_xaxes(showgrid=False, color="#94a3b8")
@@ -785,7 +808,7 @@ with st.sidebar:
         else:
             st.markdown('<div class="empty-state" style="padding:1rem;"><p style="color:var(--text2);font-size:0.8rem;">📂 No tables yet — upload data in the <b>Data</b> tab</p></div>', unsafe_allow_html=True)
     else:
-        st.caption("Not connected.")
+        st.markdown('<div class="empty-state" style="padding:0.75rem;"><p style="color:var(--text2);font-size:0.8rem;">🔌 Not connected</p></div>', unsafe_allow_html=True)
 
     with st.expander("📖 Data Dictionary", expanded=False):
         data_dictionary = st.text_area("Business rules", "", height=100,
