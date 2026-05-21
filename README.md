@@ -1,51 +1,53 @@
-# DataNova — AI-Powered BI Platform
+# DataNova
 
-Autonomous business intelligence: upload data, ask questions in natural language, get instant dashboards and AI-generated insights.
+🌐 **Live Demo:** [https://datanova.streamlit.app](https://datanova.streamlit.app)
+
+AI-powered autonomous business intelligence platform. Upload data, ask questions in natural language, and get instant dashboards, insights, and executive summaries.
 
 ---
+
+## Why DataNova
+
+Traditional analytics tools require technical expertise to extract insights from data. DataNova makes business intelligence conversational, autonomous, and accessible through AI-driven analytics workflows.
 
 ## Architecture
 
 ```
-User Query (Natural Language)
-        │
-        ▼
+User Query
+   │
+   ▼
 ┌───────────────────┐
 │  LangGraph Agent  │  ← Intent classification, SQL/Python routing
 │  Orchestrator     │
 └───────┬───────────┘
-        │
-    ┌───┴───┐
-    │       │
-    ▼       ▼
+   │         │
+   ▼         ▼
 ┌────────┐ ┌──────────┐
 │  SQL   │ │  Python  │  ← AST-validated sandbox
 │ Engine │ │  Sandbox │
 └───┬────┘ └────┬─────┘
-    │           │
-    └───┬───────┘
-        │
-        ▼
+   │           │
+   └─────┬─────┘
+         │
+         ▼
 ┌───────────────────┐
-│  Analytics Engine │  ← Plotly charts, KPIs, data quality
+│  Analytics Engine │  ← Plotly, KPIs, data quality
 │                   │
-│  Dashboard Gen.   │  ← Auto-generated zone grid layout
+│  Dashboard Gen.   │  ← Auto-generated zone grid
 │                   │
-│  AI Insight       │  ← Executive summaries, trends
-│  Narration        │
+│  AI Narration     │  ← Executive summaries, trends
 └───────────────────┘
 ```
 
-## Features
+## Key Features
 
-- **Natural Language Querying** — Ask questions in plain English, get SQL or Python
-- **Auto Dashboards** — KPI cards, charts, data quality panel, executive summary
-- **Dual Execution** — SQL for queries, Python sandbox for ML/forecasting (AST-validated)
-- **Audit Log** — Full query history with timing and error tracking
-- **Multi-Connection** — Save and switch between database connections
-- **Data Profile** — Per-column stats, correlation heatmaps, histograms
-- **Chat-to-Dashboard** — Create dashboards directly from chat results
-- **Theme Toggle** — Dark/light mode with glassmorphic UI
+- ✅ **Natural Language to SQL** — Ask questions in plain English
+- ✅ **Autonomous Dashboard Generation** — KPIs, charts, data quality, filters
+- ✅ **AI Executive Summaries** — Narrative insights from your data
+- ✅ **Dual Execution Engine** — SQL for queries, Python sandbox for ML/forecasting
+- ✅ **Dynamic KPI Detection** — Automatic metric identification
+- ✅ **Conversational Analytics** — Multi-turn chat with memory
+- ✅ **Multi-Agent Workflow** — LangGraph-powered orchestration
 
 ## Stack
 
@@ -53,24 +55,17 @@ User Query (Natural Language)
 |-------|-----------|
 | Frontend | Streamlit, Plotly |
 | AI/Orchestration | LangGraph, Groq (LLaMA) |
-| Backend | SQLAlchemy, Pandas |
+| Backend | SQLAlchemy, Pandas, NumPy |
 | Security | AST-based Python sandbox, SQL injection prevention |
 | Deployment | Docker, Streamlit Cloud |
 
 ## Quick Start
 
 ```bash
-# Clone
 git clone https://github.com/Aryaajaiswal/DataNova.git
 cd DataNova
-
-# Install
 pip install -r requirements.txt
-
-# Set API key
 echo "GROQ_API_KEY=gsk_..." > .env
-
-# Run
 streamlit run app.py
 ```
 
@@ -80,9 +75,21 @@ streamlit run app.py
 docker compose up -d
 ```
 
-## Live Demo
+## Challenges & Learnings
 
-[https://datanova.streamlit.app](https://datanova.streamlit.app)
+- Balancing autonomous dashboard generation with visual clarity
+- Improving reliability of LLM-generated SQL through self-correction loops
+- Designing schema-aware AI workflows for multi-table databases
+- Implementing secure Python execution via AST validation
+- Optimizing chart selection dynamically based on data cardinality
+
+## Roadmap
+
+- Conversational dashboard editing ("add forecasting", "compare weekdays")
+- Real-time database integrations (PostgreSQL, MySQL)
+- Multi-user collaboration with saved dashboards
+- AI anomaly detection and alerting
+- Forecasting engine with ARIMA/Prophet
 
 ## License
 
