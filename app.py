@@ -13,7 +13,7 @@ import streamlit as st
 from sqlalchemy import inspect
 from fpdf import FPDF
 
-from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, edit_dashboard, explain_chart, generate_recommendations, detect_anomalies, build_generation_graph, build_execution_graph
+from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, edit_dashboard, explain_chart, generate_recommendations, detect_anomalies, build_generation_graph, build_execution_graph, explain_results
 from setup_db import create_database, DB_PATH, register_user, login_user, register_upload, register_query_log, get_query_log, save_dashboard, load_user_dashboards, get_dashboard_by_token, get_user_alerts, create_alert, delete_alert, update_alert_trigger, check_alert_condition, get_user_workspaces, create_workspace, add_workspace_member, get_workspace_members, save_workspace_dashboard, get_workspace_dashboards
 from database import DatabaseConnector
 
@@ -1589,6 +1589,18 @@ if st.session_state.selected_tab == "💬 Chat":
                 df = last.get("df")
                 if df is not None and len(df) > 0:
                     st.success(f"{len(df)} rows returned")
+                    # NLP explanation of results
+                    q_text = ""
+                    for m in reversed(st.session_state.messages[:-1]):
+                        if m["role"] == "user":
+                            q_text = m["content"]; break
+                    if q_text:
+                        expl_key = f"nlp_result_{q_text[:40]}"
+                        if expl_key not in st.session_state:
+                            st.session_state[expl_key] = explain_results(q_text, df, db_url_input)
+                        nlp_text = st.session_state[expl_key]
+                        if nlp_text:
+                            st.info(f"💡 {nlp_text}")
                     render_dynamic_chart(df, last.get("chart_spec"), key="result_chart")
                     with st.expander("View Data", expanded=False):
                         st.dataframe(df, width='stretch', height=200)

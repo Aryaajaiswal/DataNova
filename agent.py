@@ -1105,3 +1105,32 @@ Output as a JSON list of strings."""
         return json.loads(text)
     except Exception:
         return ["What are the key trends?", "Which area needs attention?", "How can we improve performance?"]
+
+def explain_results(question: str, df, db_url: str) -> str:
+    """Generate a natural-language explanation of query results."""
+    import pandas as pd
+    try:
+        if df is None or len(df) == 0:
+            return "The query returned no results."
+        api_key = os.environ.get("GROQ_API_KEY")
+        if not api_key:
+            return ""
+        from groq import Groq
+        client = Groq(api_key=api_key)
+        summary = _df_to_text(df)
+        prompt = f"""The user asked: "{question}"
+
+The query returned a table with {len(df)} rows and {len(df.columns)} columns:
+Columns: {', '.join(df.columns.tolist())}
+
+Data summary:
+{summary}
+
+Write a concise 2-3 sentence plain-English explanation of what this data means, highlighting the most important findings. Do not mention SQL, queries, or technical details."""
+        resp = client.chat.completions.create(
+            model=CHART_MODEL, messages=[{"role": "user", "content": prompt}],
+            temperature=0.3, max_tokens=300
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception:
+        return ""
