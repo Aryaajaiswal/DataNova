@@ -13,7 +13,7 @@ import streamlit as st
 from sqlalchemy import inspect
 from fpdf import FPDF
 
-from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, build_generation_graph, build_execution_graph
+from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, edit_dashboard, build_generation_graph, build_execution_graph
 from setup_db import create_database, DB_PATH, register_upload, register_query_log, get_query_log
 from database import DatabaseConnector
 
@@ -804,6 +804,7 @@ defaults = {
     "cached_questions": {},
     "sidebar_open": True,
     "selected_tab": "💬 Chat",
+    "dash_edit_messages": [],
 }
 for k, v in defaults.items():
     st.session_state.setdefault(k, v)
@@ -921,8 +922,16 @@ def render_dynamic_chart(df: pd.DataFrame, spec, key=None):
     if fig:
         _apply_chart_layout(fig)
         st.plotly_chart(fig, width='stretch',
-                        config={"responsive": True, "displayModeBar": False, "staticPlot": False},
+                        config={"responsive": True, "displayModeBar": True, "displaylogo": False,
+                                "modeBarButtonsToRemove": ["lasso2d", "select2d"],
+                                "modeBarButtonsToAdd": ["drawrect", "eraseshape"],
+                                "staticPlot": False},
                         key=key)
+        # ── Drill-down toggle ──
+        drill_key = f"drill_{key}" if key else f"drill_{id(df)}"
+        if st.button("🔍 Drill down", key=drill_key, help="View raw data behind this chart"):
+            with st.container():
+                st.dataframe(df, width='stretch', height=200)
     return fig
 
 def sanitize_table_name(name: str) -> str:
@@ -993,6 +1002,19 @@ def render_data_quality_panel(df: pd.DataFrame):
         f'<div class="dq-row"><span class="dq-label">Missing Values</span><span class="dq-value">{nulls}</span></div>'
         f'<div class="dq-row"><span class="dq-label">Duplicates</span><span class="dq-value">{dupes}</span></div>'
         '</div>', unsafe_allow_html=True)
+
+def render_insight_cards(insights):
+    for ins in insights:
+        if isinstance(ins, dict):
+            icon = ins.get("icon", "💡")
+            label = ins.get("label", "")
+            detail = ins.get("detail", "")
+            st.markdown(f'''<div style="display:flex;gap:0.5rem;align-items:flex-start;padding:0.3rem 0;border-bottom:1px solid var(--card-border);">
+                <span style="font-size:1.1rem;flex-shrink:0;">{icon}</span>
+                <div><div style="font-weight:600;font-size:0.78rem;">{label}</div><div style="font-size:0.68rem;color:var(--text2);">{detail}</div></div>
+            </div>''', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div style="font-size:0.78rem;padding:0.2rem 0;">{ins}</div>', unsafe_allow_html=True)
 
 def ai_thinking_placeholder(ph, steps):
     """Animated AI thinking steps in a placeholder."""
@@ -1160,6 +1182,17 @@ if not has_data:
         <span style="font-size:0.7rem;padding:0.2rem 0.7rem;background:var(--card);border:1px solid var(--card-border);border-radius:20px;color:var(--text2);">📁 CSV · Excel · SQLite</span>
     </div>
     ''', unsafe_allow_html=True)
+
+    # ── Suggested first prompts ──
+    st.markdown('<p style="font-size:0.75rem;color:var(--text2);text-align:center;margin:1.2rem 0 0.4rem;">Try asking:</p>', unsafe_allow_html=True)
+    prompt_chips = ["Show revenue trends", "Analyze customer behavior", "Compare category performance", "Detect anomalies"]
+    chip_cols = st.columns(len(prompt_chips), gap="small")
+    for ci, chip in enumerate(prompt_chips):
+        with chip_cols[ci]:
+            if st.button(chip, key=f"onboard_chip_{ci}", use_container_width=True):
+                st.session_state.selected_tab = "💬 Chat"
+                st.session_state["prefill"] = chip
+                st.rerun()
 
 # ── Custom Tabs (programmatic switching) ──
 tab_labels = ["💬 Chat", "📁 Data", "📊 Dashboard"]
@@ -1399,8 +1432,7 @@ if st.session_state.selected_tab == "📁 Data":
                         st.warning(f"Insight generation failed: {e}")
                         insights = ["Data loaded successfully. Ask questions in the Chat tab."]
                 with st.expander("💡 Data Insights", expanded=True):
-                    for ins in insights:
-                        st.markdown(ins)
+                    render_insight_cards(insights)
                 get_cached_tables.clear()
                 get_cached_schema.clear()
                 st.session_state["cached_questions"].pop(db_url_input, None)
@@ -1460,8 +1492,7 @@ if st.session_state.selected_tab == "📁 Data":
                                     st.warning(f"Insights failed: {e}")
                                     insights = ["Data loaded."]
                             with st.expander("💡 Data Insights", expanded=True):
-                                for ins in insights:
-                                    st.markdown(ins)
+                                render_insight_cards(insights)
                             get_cached_tables.clear()
                             get_cached_schema.clear()
                             st.session_state["cached_questions"].pop(db_url_input, None)
@@ -1506,8 +1537,7 @@ if st.session_state.selected_tab == "📁 Data":
                             st.warning(f"Insights failed: {e}")
                             insights = ["Data loaded."]
                     with st.expander("💡 Data Insights", expanded=True):
-                        for ins in insights:
-                            st.markdown(ins)
+                        render_insight_cards(insights)
                     get_cached_tables.clear()
                     get_cached_schema.clear()
                     st.session_state["cached_questions"].pop(db_url_input, None)
@@ -1730,6 +1760,85 @@ if st.session_state.selected_tab == "📊 Dashboard":
                 for qi, q in enumerate(dash["suggested_questions"]):
                     if st.button(q, width='stretch', key=f"sq_{selected}_{qi}"):
                         st.session_state["prefill"] = q
+
+        # ── Dashboard Edit Chat ──
+        st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+        with st.expander("✏️ AI Dashboard Editor", expanded=False):
+            for dm in st.session_state.dash_edit_messages[-6:]:
+                if dm["role"] == "user":
+                    st.markdown(f'<div style="padding:0.3rem 0;font-size:0.85rem;"><b>You:</b> {dm["content"]}</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown(f'<div style="padding:0.3rem 0;font-size:0.85rem;color:var(--accent);"><b>AI:</b> {dm["content"]}</div>', unsafe_allow_html=True)
+            edit_req = st.chat_input("Ask to edit the dashboard...", key="dash_edit_input")
+            if edit_req:
+                st.session_state.dash_edit_messages.append({"role": "user", "content": edit_req})
+                with st.spinner("Editing..."):
+                    result = edit_dashboard(dash, edit_req, db_url_input)
+                    action = result.get("action", "none")
+                    msg = result.get("message", "")
+                    if action == "none":
+                        st.session_state.dash_edit_messages.append({"role": "assistant", "content": msg or "I can change chart types, add/remove KPIs, adjust titles, or modify the executive summary. Try something like 'make the main chart a line chart'."})
+                    elif action == "multi":
+                        steps = result.get("steps", [])
+                        applied = []
+                        for step in steps:
+                            a = step.get("action")
+                            if a == "modify_chart":
+                                ci = step.get("chart_index")
+                                chg = step.get("changes", {})
+                                if ci is not None and ci < len(dash["charts"]):
+                                    for k, v in chg.items():
+                                        dash["charts"][ci][k] = v
+                                    applied.append(f"Modified chart {ci}")
+                            elif a == "add_kpi":
+                                kpi = step.get("kpi", {})
+                                dash.setdefault("kpis", []).append(kpi)
+                                applied.append(f"Added KPI: {kpi.get('label')}")
+                            elif a == "remove_kpi":
+                                ki = step.get("kpi_index")
+                                if ki is not None and ki < len(dash.get("kpis", [])):
+                                    removed = dash["kpis"].pop(ki)
+                                    applied.append(f"Removed KPI: {removed.get('label')}")
+                            elif a == "add_chart":
+                                nc = step.get("chart", {})
+                                dash.setdefault("charts", []).append(nc)
+                                applied.append(f"Added chart: {nc.get('title')}")
+                            elif a == "set_summary":
+                                dash["summary"] = step.get("summary", "")
+                                applied.append("Updated summary")
+                        st.session_state.auto_dashboards[selected] = dash
+                        st.session_state.dash_edit_messages.append({"role": "assistant", "content": "Applied: " + ", ".join(applied) if applied else "No changes applied."})
+                    elif action == "modify_chart":
+                        ci = result.get("chart_index")
+                        chg = result.get("changes", {})
+                        if ci is not None and ci < len(dash["charts"]):
+                            for k, v in chg.items():
+                                dash["charts"][ci][k] = v
+                            st.session_state.auto_dashboards[selected] = dash
+                            st.session_state.dash_edit_messages.append({"role": "assistant", "content": f"Updated chart {ci}: {chg}"})
+                    elif action == "add_kpi":
+                        kpi = result.get("kpi", {})
+                        dash.setdefault("kpis", []).append(kpi)
+                        st.session_state.auto_dashboards[selected] = dash
+                        st.session_state.dash_edit_messages.append({"role": "assistant", "content": f"Added KPI: {kpi.get('label')}"})
+                    elif action == "remove_kpi":
+                        ki = result.get("kpi_index")
+                        if ki is not None and ki < len(dash.get("kpis", [])):
+                            removed = dash["kpis"].pop(ki)
+                            st.session_state.auto_dashboards[selected] = dash
+                            st.session_state.dash_edit_messages.append({"role": "assistant", "content": f"Removed KPI: {removed.get('label')}"})
+                    elif action == "add_chart":
+                        nc = result.get("chart", {})
+                        dash.setdefault("charts", []).append(nc)
+                        st.session_state.auto_dashboards[selected] = dash
+                        st.session_state.dash_edit_messages.append({"role": "assistant", "content": f"Added chart: {nc.get('title')}"})
+                    elif action == "set_summary":
+                        dash["summary"] = result.get("summary", "")
+                        st.session_state.auto_dashboards[selected] = dash
+                        st.session_state.dash_edit_messages.append({"role": "assistant", "content": "Executive summary updated."})
+                    else:
+                        st.session_state.dash_edit_messages.append({"role": "assistant", "content": f"Applied action: {action}"})
+                st.rerun()
 
     # ── Pinned Charts ──
     if has_pinned:

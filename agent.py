@@ -780,48 +780,43 @@ def auto_generate_dashboard(table_name: str, db_url: str) -> dict:
 
 
 def analyze_data_insights(df, table_name, db_url):
-    """Run basic statistical analysis on uploaded data and return insights."""
+    """Run basic statistical analysis on uploaded data and return structured insight cards."""
     insights = []
     n_rows = len(df)
     n_cols = len(df.columns)
     
-    # Null analysis
     null_counts = df.isnull().sum()
     high_null_cols = null_counts[null_counts > n_rows * 0.2]
     for col in high_null_cols.index:
         pct = int(null_counts[col] / n_rows * 100)
-        insights.append(f"⚠️ **{col}** has {pct}% missing values — consider cleaning or imputing.")
+        insights.append({"icon": "⚠️", "label": f"{pct}% missing in {col}", "detail": f"Consider cleaning or imputing {n_rows - null_counts[col]} non-null values remain."})
     
-    # Duplicate analysis
     dupes = df.duplicated().sum()
     if dupes > n_rows * 0.05:
-        insights.append(f"🔁 {dupes:,} duplicate rows found ({dupes/n_rows*100:.0f}%) — may skew aggregations.")
+        insights.append({"icon": "🔁", "label": f"{dupes:,} duplicate rows", "detail": f"{dupes/n_rows*100:.0f}% of data — may skew aggregations."})
     
-    # Numeric outlier detection
     num_cols = df.select_dtypes(include=["int64", "float64"]).columns
     for col in num_cols:
         q1, q3 = df[col].quantile(0.25), df[col].quantile(0.75)
         iqr = q3 - q1
         outliers = ((df[col] < q1 - 1.5 * iqr) | (df[col] > q3 + 1.5 * iqr)).sum()
         if outliers > n_rows * 0.02:
-            insights.append(f"📊 **{col}** has {outliers} outlier rows ({outliers/n_rows*100:.0f}%) — check for data entry errors.")
+            insights.append({"icon": "📊", "label": f"{outliers} outliers in {col}", "detail": f"{outliers/n_rows*100:.0f}% of rows — check for data entry errors."})
     
-    # Categorical cardinality
     cat_cols = df.select_dtypes(include=["object", "category"]).columns
     for col in cat_cols:
         n_unique = df[col].nunique()
         if n_unique > 50:
-            insights.append(f"🏷️ **{col}** has {n_unique} unique values — high cardinality column.")
+            insights.append({"icon": "🏷️", "label": f"High cardinality: {col}", "detail": f"{n_unique} unique values."})
         elif n_unique <= 3 and n_unique > 0:
-            insights.append(f"🎯 **{col}** has only {n_unique} distinct values ({df[col].dropna().unique().tolist()}) — good filter candidate.")
+            insights.append({"icon": "🎯", "label": f"Good filter: {col}", "detail": f"Only {n_unique} values ({df[col].dropna().unique().tolist()})."})
     
-    # Trend detection on date columns
     date_cols = df.select_dtypes(include=["datetime64"]).columns
     for col in date_cols:
-        insights.append(f"📅 **{col}** is a date column — time-series analysis available.")
+        insights.append({"icon": "📅", "label": f"Time column: {col}", "detail": "Time-series analysis available."})
     
     if not insights:
-        insights.append(f"✅ No anomalies detected in **{table_name}** ({n_rows:,} rows, {n_cols} columns).")
+        insights.append({"icon": "✅", "label": f"Clean dataset", "detail": f"{n_rows:,} rows × {n_cols} columns, no anomalies detected."})
     
     return insights
 
@@ -918,3 +913,57 @@ def generate_executive_summary(pinned_items: list[dict]) -> str:
     except Exception as e:
         print(f"Error generating summary: {e}")
         return "Error generating summary."
+
+
+def edit_dashboard(dash: dict, user_request: str, db_url: str) -> dict:
+    """Use LLM to interpret a dashboard edit request and return modified dashboard spec."""
+    table_name = dash.get("table_name", "")
+    kpis = dash.get("kpis", [])
+    charts = dash.get("charts", [])
+
+    chart_summary = []
+    for i, c in enumerate(charts):
+        chart_summary.append(
+            f"  Chart {i}: title=\"{c.get('title')}\", type={c.get('type')}, x={c.get('x')}, y={c.get('y')}, is_main={c.get('is_main')}"
+        )
+    kpi_summary = [f"  KPI {i}: label=\"{k.get('label')}\", format={k.get('format', 'number')}" for i, k in enumerate(kpis)]
+
+    context = (
+        f"Dashboard table: {table_name}\n"
+        f"KPIs:\n" + "\n".join(kpi_summary) + "\n"
+        f"Charts:\n" + "\n".join(chart_summary) + "\n"
+    )
+
+    prompt = f"""You are a dashboard editor. The user has a BI dashboard with the following structure:
+
+{context}
+
+The user says: "{user_request}"
+
+Respond with ONLY a JSON object. Available actions:
+
+1. Change a chart's type: {{"action": "modify_chart", "chart_index": N, "changes": {{"type": "line|bar|pie|scatter", "title": "..."}}}}
+2. Add a new KPI: {{"action": "add_kpi", "kpi": {{"label": "...", "format": "number|currency|percent", "icon": "💰|📈|📉|⭐"}}}}
+3. Remove a KPI: {{"action": "remove_kpi", "kpi_index": N}}
+4. Change chart axes: {{"action": "modify_chart", "chart_index": N, "changes": {{"x": "...", "y": "..."}}}}
+5. Add a new chart: {{"action": "add_chart", "chart": {{"title": "...", "type": "bar|line|pie|scatter", "x": "...", "y": "...", "sql": "...", "is_main": false}}}}
+6. Replace the summary: {{"action": "set_summary", "summary": "new executive summary in markdown"}}
+7. Multiple changes: {{"action": "multi", "steps": [<action objects>]}}
+
+If unsure, respond with: {{"action": "none", "message": "what I can do"}}
+"""
+
+    try:
+        api_key = os.environ.get("GROQ_API_KEY", "")
+        client = Groq(api_key=api_key)
+        response = client.chat.completions.create(
+            model=CHART_MODEL,
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.2,
+            max_tokens=1024
+        )
+        text = response.choices[0].message.content.strip()
+        text = text.replace("```json", "").replace("```", "").strip()
+        return json.loads(text)
+    except Exception as e:
+        return {"action": "none", "message": f"Edit failed: {str(e)}"}
