@@ -13,7 +13,7 @@ import streamlit as st
 from sqlalchemy import inspect
 from fpdf import FPDF
 
-from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, edit_dashboard, build_generation_graph, build_execution_graph
+from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, edit_dashboard, explain_chart, generate_recommendations, generate_followup_questions, build_generation_graph, build_execution_graph
 from setup_db import create_database, DB_PATH, register_upload, register_query_log, get_query_log
 from database import DatabaseConnector
 
@@ -932,6 +932,22 @@ def render_dynamic_chart(df: pd.DataFrame, spec, key=None):
         if st.button("🔍 Drill down", key=drill_key, help="View raw data behind this chart"):
             with st.container():
                 st.dataframe(df, width='stretch', height=200)
+        # ── Explain chart ──
+        explain_key = f"explain_{key}" if key else f"explain_{id(df)}"
+        explain_text = st.session_state.get(explain_key, "")
+        if not explain_text:
+            if st.button("💡 Explain this chart", key=f"btn_{explain_key}", help="Plain-English explanation"):
+                with st.spinner(""):
+                    _ct = spec.get("type", "chart") if isinstance(spec, dict) else "chart"
+                    _xc = spec.get("x") if isinstance(spec, dict) else None
+                    _yc = spec.get("y") if isinstance(spec, dict) else None
+                    st.session_state[explain_key] = explain_chart(df, _ct, _xc, _yc)
+                st.rerun()
+        else:
+            st.markdown(f'<div style="padding:0.5rem 0.7rem;margin-top:0.3rem;background:var(--card);border:1px solid var(--card-border);border-radius:12px;font-size:0.82rem;line-height:1.6;color:var(--text2);">💡 <b>What This Means</b><br>{explain_text}</div>', unsafe_allow_html=True)
+            if st.button("✕", key=f"close_{explain_key}", help="Dismiss"):
+                st.session_state.pop(explain_key, None)
+                st.rerun()
     return fig
 
 def sanitize_table_name(name: str) -> str:
@@ -1760,6 +1776,20 @@ if st.session_state.selected_tab == "📊 Dashboard":
                 for qi, q in enumerate(dash["suggested_questions"]):
                     if st.button(q, width='stretch', key=f"sq_{selected}_{qi}"):
                         st.session_state["prefill"] = q
+
+        # ── AI Recommendations ──
+        rec_key = f"dash_recs_{selected}"
+        if rec_key not in st.session_state:
+            with st.spinner("Generating recommendations..."):
+                st.session_state[rec_key] = generate_recommendations(dash, db_url_input)
+        recs = st.session_state[rec_key]
+        if recs:
+            st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+            st.markdown('<p class="section-title" style="font-size:0.9rem;">🎯 AI Recommendations</p>', unsafe_allow_html=True)
+            rec_cols = st.columns(min(len(recs), 3), gap="small")
+            for ri, rec in enumerate(recs[:3]):
+                with rec_cols[ri]:
+                    st.markdown(f'<div style="padding:0.5rem 0.7rem;background:var(--card);border:1px solid var(--card-border);border-radius:12px;font-size:0.78rem;line-height:1.5;">{rec}</div>', unsafe_allow_html=True)
 
         # ── Dashboard Edit Chat ──
         st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)

@@ -967,3 +967,88 @@ If unsure, respond with: {{"action": "none", "message": "what I can do"}}
         return json.loads(text)
     except Exception as e:
         return {"action": "none", "message": f"Edit failed: {str(e)}"}
+
+
+def explain_chart(df, chart_type: str, x_col: str = None, y_col: str = None) -> str:
+    """Generate a plain-English explanation of what a chart shows."""
+    try:
+        summary_parts = []
+        if y_col and y_col in df.columns:
+            vals = df[y_col]
+            summary_parts.append(f"{y_col}: min={vals.min():.2f}, max={vals.max():.2f}, avg={vals.mean():.2f}")
+        if x_col and x_col in df.columns:
+            top = df.groupby(x_col)[y_col].sum().nlargest(3) if y_col and y_col in df.columns else None
+            if top is not None:
+                for cat, val in top.items():
+                    summary_parts.append(f"Top: {cat} ({val:.2f})")
+        context = " | ".join(summary_parts) if summary_parts else f"{len(df)} rows, columns: {', '.join(df.columns[:6])}"
+        api_key = os.environ.get("GROQ_API_KEY", "")
+        client = Groq(api_key=api_key)
+        prompt = f"""You are a senior business analyst explaining a {chart_type} chart to a non-technical business owner.
+Chart data: {context}
+
+Write ONE short paragraph (2-3 sentences) explaining what this chart means in plain English.
+Focus on the key pattern, what's notable, and why it matters.
+Avoid jargon. Speak like a human consultant."""
+        resp = client.chat.completions.create(
+            model=CHART_MODEL, messages=[{"role": "user", "content": prompt}],
+            temperature=0.3, max_tokens=256
+        )
+        return resp.choices[0].message.content.strip()
+    except Exception as e:
+        return f"Chart shows {chart_type} of {y_col or 'values'} by {x_col or 'category'}."
+
+
+def generate_recommendations(dash: dict, db_url: str) -> list:
+    """Generate actionable business recommendations from dashboard data."""
+    kpis = dash.get("kpis", [])
+    kpi_text = "; ".join([f"{k.get('label')}: {k.get('value', '?')} ({k.get('trend', 'stable')})" for k in kpis[:5]])
+    charts = dash.get("charts", [])
+    chart_text = "; ".join([f"{c.get('title')} ({c.get('type')})" for c in charts[:3]])
+    context = f"KPIs: {kpi_text}\nCharts: {chart_text}"
+    try:
+        api_key = os.environ.get("GROQ_API_KEY", "")
+        client = Groq(api_key=api_key)
+        prompt = f"""You are a business strategy consultant reviewing a company's analytics dashboard.
+
+Dashboard data:
+{context}
+
+Suggest 3 specific, actionable business recommendations based on what you see.
+Each recommendation should:
+- Start with an emoji (💡/📈/⚡/🎯/🔥)
+- Be 1 sentence
+- Focus on what the business should DO
+
+Output as a JSON list: ["rec1", "rec2", "rec3"]"""
+        resp = client.chat.completions.create(
+            model=CHART_MODEL, messages=[{"role": "user", "content": prompt}],
+            temperature=0.4, max_tokens=512
+        )
+        text = resp.choices[0].message.content.strip()
+        text = text.replace("```json", "").replace("```", "").strip()
+        return json.loads(text)
+    except Exception:
+        return ["💡 Explore your data in the Chat tab for personalized recommendations.",
+                "📈 Compare different time periods to spot trends.",
+                "🎯 Ask 'What should I focus on?' for AI-powered guidance."]
+
+
+def generate_followup_questions(dash: dict, db_url: str) -> list:
+    """Generate contextual follow-up questions based on dashboard data."""
+    table_name = dash.get("table_name", "")
+    try:
+        api_key = os.environ.get("GROQ_API_KEY", "")
+        client = Groq(api_key=api_key)
+        prompt = f"""Based on a dashboard for table "{table_name}" with KPIs: {', '.join([k.get('label','') for k in dash.get('kpis',[])[:4]])},
+suggest 3 follow-up questions a business owner might ask.
+Output as a JSON list of strings."""
+        resp = client.chat.completions.create(
+            model=CHART_MODEL, messages=[{"role": "user", "content": prompt}],
+            temperature=0.3, max_tokens=256
+        )
+        text = resp.choices[0].message.content.strip()
+        text = text.replace("```json", "").replace("```", "").strip()
+        return json.loads(text)
+    except Exception:
+        return ["What are the key trends?", "Which area needs attention?", "How can we improve performance?"]
