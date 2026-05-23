@@ -13,7 +13,7 @@ import streamlit as st
 from sqlalchemy import inspect
 from fpdf import FPDF
 
-from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, edit_dashboard, explain_chart, generate_recommendations, generate_followup_questions, build_generation_graph, build_execution_graph
+from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, edit_dashboard, explain_chart, generate_recommendations, generate_followup_questions, detect_anomalies, build_generation_graph, build_execution_graph
 from setup_db import create_database, DB_PATH, register_upload, register_query_log, get_query_log
 from database import DatabaseConnector
 
@@ -1025,9 +1025,11 @@ def render_insight_cards(insights):
             icon = ins.get("icon", "💡")
             label = ins.get("label", "")
             detail = ins.get("detail", "")
+            severity = ins.get("severity", "")
+            tag = f'<span style="font-size:0.6rem;padding:0.05rem 0.4rem;border-radius:8px;background:var(--accent);color:#fff;margin-left:0.3rem;">{severity}</span>' if severity else ""
             st.markdown(f'''<div style="display:flex;gap:0.5rem;align-items:flex-start;padding:0.3rem 0;border-bottom:1px solid var(--card-border);">
                 <span style="font-size:1.1rem;flex-shrink:0;">{icon}</span>
-                <div><div style="font-weight:600;font-size:0.78rem;">{label}</div><div style="font-size:0.68rem;color:var(--text2);">{detail}</div></div>
+                <div><div style="font-weight:600;font-size:0.78rem;">{label}{tag}</div><div style="font-size:0.68rem;color:var(--text2);">{detail}</div></div>
             </div>''', unsafe_allow_html=True)
         else:
             st.markdown(f'<div style="font-size:0.78rem;padding:0.2rem 0;">{ins}</div>', unsafe_allow_html=True)
@@ -1790,6 +1792,26 @@ if st.session_state.selected_tab == "📊 Dashboard":
             for ri, rec in enumerate(recs[:3]):
                 with rec_cols[ri]:
                     st.markdown(f'<div style="padding:0.5rem 0.7rem;background:var(--card);border:1px solid var(--card-border);border-radius:12px;font-size:0.78rem;line-height:1.5;">{rec}</div>', unsafe_allow_html=True)
+
+        # ── Anomaly Detection ──
+        anom_key = f"dash_anom_{selected}"
+        if anom_key not in st.session_state:
+            with st.spinner("Scanning for anomalies..."):
+                try:
+                    dbc = get_cached_connector(db_url_input)
+                    full_df = pd.read_sql(f"SELECT * FROM [{table_name}]", dbc.engine)
+                    st.session_state[anom_key] = detect_anomalies(full_df, table_name)
+                except Exception:
+                    st.session_state[anom_key] = []
+        anom_list = st.session_state[anom_key]
+        if anom_list:
+            st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+            st.markdown('<p class="section-title" style="font-size:0.9rem;">🚨 Anomaly Detection</p>', unsafe_allow_html=True)
+            for a in anom_list:
+                sev = a.get("severity", "ℹ️")
+                title = a.get("title", "")
+                detail = a.get("detail", "")
+                st.markdown(f'<div style="display:flex;gap:0.5rem;padding:0.3rem 0.5rem;background:var(--card);border:1px solid var(--card-border);border-radius:12px;margin-bottom:0.25rem;"><span style="font-size:1rem;">{sev}</span><div><div style="font-weight:600;font-size:0.78rem;">{title}</div><div style="font-size:0.7rem;color:var(--text2);">{detail}</div></div></div>', unsafe_allow_html=True)
 
         # ── Dashboard Edit Chat ──
         st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)

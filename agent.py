@@ -970,33 +970,86 @@ If unsure, respond with: {{"action": "none", "message": "what I can do"}}
 
 
 def explain_chart(df, chart_type: str, x_col: str = None, y_col: str = None) -> str:
-    """Generate a plain-English explanation of what a chart shows."""
+    """Generate a plain-English explanation with confidence, chart reasoning, and severity."""
     try:
         summary_parts = []
         if y_col and y_col in df.columns:
             vals = df[y_col]
-            summary_parts.append(f"{y_col}: min={vals.min():.2f}, max={vals.max():.2f}, avg={vals.mean():.2f}")
+            summary_parts.append(f"{y_col}: min={vals.min():.2f}, max={vals.max():.2f}, avg={vals.mean():.2f}, std={vals.std():.2f}")
         if x_col and x_col in df.columns:
             top = df.groupby(x_col)[y_col].sum().nlargest(3) if y_col and y_col in df.columns else None
             if top is not None:
                 for cat, val in top.items():
                     summary_parts.append(f"Top: {cat} ({val:.2f})")
         context = " | ".join(summary_parts) if summary_parts else f"{len(df)} rows, columns: {', '.join(df.columns[:6])}"
+        n_rows = len(df)
+        confidence = "High" if n_rows >= 20 else "Medium" if n_rows >= 5 else "Low"
         api_key = os.environ.get("GROQ_API_KEY", "")
         client = Groq(api_key=api_key)
         prompt = f"""You are a senior business analyst explaining a {chart_type} chart to a non-technical business owner.
-Chart data: {context}
 
-Write ONE short paragraph (2-3 sentences) explaining what this chart means in plain English.
-Focus on the key pattern, what's notable, and why it matters.
-Avoid jargon. Speak like a human consultant."""
+Data: {context}
+
+Write a structured response with 3 parts separated by "||":
+1. Chart choice reason (why {chart_type} fits this data) — 1 sentence
+2. What This Means — 2 sentences explaining the key pattern in plain English
+3. Severity tag — one of: 🔥 Strong Trend / ⚠️ Potential Issue / 📈 Opportunity / ℹ️ Note
+
+Format: [choice] || [explanation] || [severity]"""
         resp = client.chat.completions.create(
             model=CHART_MODEL, messages=[{"role": "user", "content": prompt}],
-            temperature=0.3, max_tokens=256
+            temperature=0.3, max_tokens=384
         )
-        return resp.choices[0].message.content.strip()
+        text = resp.choices[0].message.content.strip()
+        parts = [p.strip() for p in text.split("||")]
+        choice = parts[0] if len(parts) > 0 else ""
+        explanation = parts[1] if len(parts) > 1 else text
+        severity = parts[2] if len(parts) > 2 else "ℹ️ Note"
+        return f"📊 **Chart Choice:** {choice}\n\n💡 **What This Means:** {explanation}\n\n🎯 **Confidence:** {confidence}  ·  {severity}"
     except Exception as e:
-        return f"Chart shows {chart_type} of {y_col or 'values'} by {x_col or 'category'}."
+        return f"💡 **What This Means:** Chart shows {chart_type} of {y_col or 'values'} by {x_col or 'category'}.\n\n🎯 **Confidence:** Medium"
+
+
+def detect_anomalies(df, table_name: str) -> list:
+    """Detect anomalies in the dataset and return structured alerts."""
+    alerts = []
+    n_rows = len(df)
+    if n_rows < 3:
+        return []
+    num_cols = df.select_dtypes(include=["int64", "float64"]).columns
+    for col in num_cols:
+        vals = df[col].dropna()
+        if len(vals) < 3:
+            continue
+        q1, q3 = vals.quantile(0.25), vals.quantile(0.75)
+        iqr = q3 - q1
+        lower, upper = q1 - 2.5 * iqr, q3 + 2.5 * iqr
+        outliers = vals[(vals < lower) | (vals > upper)]
+        if len(outliers) > 0:
+            pct = len(outliers) / n_rows * 100
+            if pct > 1:
+                alerts.append({"severity": "🔥" if pct > 5 else "⚠️", "title": f"Unusual {col} values", "detail": f"{len(outliers)} anomalous rows ({pct:.0f}%) — values range {outliers.min():.2f} to {outliers.max():.2f} vs normal range {lower:.2f}–{upper:.2f}."})
+    cat_cols = df.select_dtypes(include=["object", "category"]).columns
+    for col in cat_cols:
+        counts = df[col].value_counts()
+        if len(counts) > 2:
+            top_ratio = counts.iloc[0] / n_rows
+            if top_ratio > 0.8:
+                alerts.append({"severity": "📈", "title": f"Dominant category in {col}", "detail": f"'{counts.index[0]}' accounts for {top_ratio:.0f}% of data — may skew analysis."})
+    date_cols = df.select_dtypes(include=["datetime64"]).columns
+    for col in date_cols:
+        series = df[col].dropna()
+        if len(series) >= 7:
+            daily = series.dt.day_name().value_counts()
+            weekend_avg = daily.get("Saturday", 0) + daily.get("Sunday", 0)
+            weekday_avg = sum(daily.get(d, 0) for d in ["Monday","Tuesday","Wednesday","Thursday","Friday"]) / 5
+            total_days = len(series)
+            weekend_ratio = weekend_avg / total_days if total_days else 0
+            if weekend_ratio > 0.35:
+                alerts.append({"severity": "🔥", "title": "Weekend-heavy activity", "detail": f"{weekend_ratio:.0f}% of records fall on weekends — significantly above expected 29%."})
+    if not alerts:
+        alerts.append({"severity": "✅", "title": "No anomalies detected", "detail": f"Dataset looks clean across {len(num_cols)} numeric and {len(cat_cols)} categorical columns."})
+    return alerts
 
 
 def generate_recommendations(dash: dict, db_url: str) -> list:
