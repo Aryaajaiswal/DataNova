@@ -844,23 +844,106 @@ if not st.session_state.sidebar_open:
     ''', unsafe_allow_html=True)
 
 # ── Helper functions ──
-def auto_chart(df: pd.DataFrame):
+
+SUPPORTED_CHARTS = {
+    "bar": {"analysis": "comparison", "needs": ["category", "numeric"]},
+    "line": {"analysis": "trend", "needs": ["datetime", "numeric"]},
+    "pie": {"analysis": "composition", "needs": ["category", "numeric"], "max_categories": 6},
+    "scatter": {"analysis": "relationship", "needs": ["numeric", "numeric"]},
+    "histogram": {"analysis": "distribution", "needs": ["numeric"]},
+    "box": {"analysis": "distribution", "needs": ["category", "numeric"]},
+    "area": {"analysis": "trend", "needs": ["datetime", "numeric"]},
+}
+
+def recommend_chart(df: pd.DataFrame):
+    """Deterministic chart recommendation based on column analysis."""
     if len(df) < 2 or len(df.columns) < 2:
         return None
     num_cols = [c for c in df.columns if "int" in str(df[c].dtype) or "float" in str(df[c].dtype)]
     cat_cols = [c for c in df.columns if "object" in str(df[c].dtype) or "cate" in str(df[c].dtype)]
-    if len(num_cols) >= 1 and len(cat_cols) >= 1:
-        return px.bar(df, x=cat_cols[0], y=num_cols[0], color_discrete_sequence=["#818cf8"])
-    if len(num_cols) >= 2:
-        return px.line(df, x=num_cols[0], y=num_cols[1], color_discrete_sequence=["#818cf8"])
-    if len(cat_cols) >= 2:
+    dt_cols = [c for c in df.columns if "datetime" in str(df[c].dtype)]
+    n = len(df)
+    if dt_cols and num_cols:
+        return {"type": "line", "x": dt_cols[0], "y": num_cols[0]}
+    if len(num_cols) >= 2 and n <= 100:
+        return {"type": "scatter", "x": num_cols[0], "y": num_cols[1]}
+    if cat_cols and num_cols:
         c = cat_cols[0]
-        if len(df[c].unique()) > 6:
-            return px.bar(df, x=c, y=cat_cols[1] if len(cat_cols) > 1 else None, color_discrete_sequence=["#818cf8"])
-        return px.pie(df, names=c, color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399"])
+        if len(df[c].unique()) <= 6:
+            return {"type": "pie", "x": c, "y": num_cols[0]}
+        return {"type": "bar", "x": c, "y": num_cols[0]}
+    if len(num_cols) >= 2:
+        return {"type": "scatter", "x": num_cols[0], "y": num_cols[1]}
+    if num_cols:
+        return {"type": "histogram", "x": num_cols[0]}
     return None
 
-def _apply_chart_layout(fig):
+def regenerate_chart_data(df, spec, new_type):
+    """Re-aggregate data and remap dimensions for a new chart type."""
+    xc, yc = spec.get("x"), spec.get("y")
+    if xc and xc not in df.columns:
+        cat_cols = df.select_dtypes(include=["object", "category"]).columns
+        xc = cat_cols[0] if len(cat_cols) > 0 else df.columns[0]
+    if yc and yc not in df.columns:
+        num_cols = df.select_dtypes(include=["int64", "float64"]).columns
+        yc = num_cols[0] if len(num_cols) > 0 else (df.columns[1] if len(df.columns) > 1 else df.columns[0])
+    if new_type == "pie":
+        if xc and yc and xc in df and yc in df:
+            grouped = df.groupby(xc)[yc].sum().reset_index()
+            if len(grouped) > 6:
+                top = grouped.nlargest(6, yc)
+                other = pd.DataFrame({xc: ["Other"], yc: [grouped.loc[~grouped[xc].isin(top[xc]), yc].sum()]})
+                grouped = pd.concat([top, other], ignore_index=True)
+            return grouped, {"type": "pie", "x": xc, "y": yc}
+    if new_type == "histogram":
+        col = yc if yc and yc in df else (xc if xc and xc in df else df.select_dtypes(include=["int64", "float64"]).columns[0])
+        return df[[col]].dropna(), {"type": "histogram", "x": col}
+    if new_type == "line":
+        if xc and xc in df:
+            try:
+                df = df.sort_values(xc)
+            except Exception:
+                pass
+        return df, {"type": "line", "x": xc, "y": yc}
+    if new_type == "scatter":
+        return df, {"type": "scatter", "x": xc, "y": yc}
+    if new_type == "box":
+        if xc and yc and xc in df and yc in df:
+            return df[[xc, yc]].dropna(), {"type": "box", "x": xc, "y": yc}
+    if new_type == "area":
+        return df, {"type": "area", "x": xc, "y": yc}
+    return df, {"type": new_type or "bar", "x": xc, "y": yc}
+
+def auto_chart(df: pd.DataFrame):
+    spec = recommend_chart(df)
+    if spec is None:
+        return None
+    return _build_figure(df, spec["type"], spec.get("x"), spec.get("y"))
+
+def _build_figure(df, ct, xc, yc):
+    try:
+        if ct == "pie":
+            if xc and yc and len(df[xc].unique()) > 6:
+                ct, yc, xc = "bar", xc, yc
+            else:
+                return px.pie(df, names=xc, values=yc, color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399", "#22d3ee"])
+        if ct == "bar" and xc and yc:
+            return px.bar(df, x=xc, y=yc, color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9"])
+        if ct == "line" and xc and yc:
+            return px.line(df, x=xc, y=yc, color_discrete_sequence=["#818cf8", "#22d3ee"])
+        if ct == "scatter" and xc and yc:
+            return px.scatter(df, x=xc, y=yc, color_discrete_sequence=["#818cf8"])
+        if ct == "histogram" and xc:
+            return px.histogram(df, x=xc, color_discrete_sequence=["#818cf8"])
+        if ct == "box" and xc and yc:
+            return px.box(df, x=xc, y=yc, color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9"])
+        if ct == "area" and xc and yc:
+            return px.area(df, x=xc, y=yc, color_discrete_sequence=["#818cf8"])
+        if ct == "pie" and xc:
+            return px.pie(df, names=xc, color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399", "#22d3ee"])
+    except Exception:
+        pass
+    return None
     is_dark = st.session_state.theme == "dark"
     text_color = "#ffffff" if is_dark else "#0f172a"
     text2_color = "#cbd5e1" if is_dark else "#64748b"
@@ -899,24 +982,7 @@ def render_dynamic_chart(df: pd.DataFrame, spec, key=None):
     elif isinstance(spec, dict) and "type" in spec:
         ct = spec.get("type", "").lower()
         xc, yc = spec.get("x"), spec.get("y")
-        try:
-            if ct == "pie" and xc:
-                if yc and len(df[xc].unique()) > 6:
-                    ct, yc, xc = "bar", xc, yc
-                else:
-                    fig = px.pie(df, names=xc, values=yc if yc else None,
-                                 color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399", "#22d3ee"])
-            if ct == "bar" and xc and yc:
-                fig = px.bar(df, x=xc, y=yc, color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9"])
-            elif ct == "line" and xc and yc:
-                fig = px.line(df, x=xc, y=yc, color_discrete_sequence=["#818cf8", "#22d3ee"])
-            elif ct == "scatter" and xc and yc:
-                fig = px.scatter(df, x=xc, y=yc, color_discrete_sequence=["#818cf8"])
-            elif ct == "pie" and xc:
-                fig = px.pie(df, names=xc, values=yc if yc else None,
-                             color_discrete_sequence=["#818cf8", "#a78bfa", "#e879f9", "#fbbf24", "#34d399", "#22d3ee"])
-        except Exception:
-            fig = auto_chart(df)
+        fig = _build_figure(df, ct, xc, yc)
     if fig is None:
         fig = auto_chart(df)
     if fig:
@@ -1839,9 +1905,20 @@ if st.session_state.selected_tab == "📊 Dashboard":
                                 ci = step.get("chart_index")
                                 chg = step.get("changes", {})
                                 if ci is not None and ci < len(dash["charts"]):
-                                    for k, v in chg.items():
-                                        dash["charts"][ci][k] = v
-                                    applied.append(f"Modified chart {ci}")
+                                    chart = dash["charts"][ci]
+                                    new_type = chg.get("type", chart.get("type"))
+                                    try:
+                                        new_df, new_spec = regenerate_chart_data(chart.get("df", pd.DataFrame()), chart, new_type)
+                                        chart["df"] = new_df
+                                        chart["type"] = new_spec["type"]
+                                        if new_spec.get("x"): chart["x"] = new_spec["x"]
+                                        if new_spec.get("y"): chart["y"] = new_spec["y"]
+                                        for k, v in chg.items():
+                                            if k != "type": chart[k] = v
+                                    except Exception:
+                                        for k, v in chg.items():
+                                            chart[k] = v
+                                    applied.append(f"Modified chart {ci} to {new_type}")
                             elif a == "add_kpi":
                                 kpi = step.get("kpi", {})
                                 dash.setdefault("kpis", []).append(kpi)
@@ -1864,10 +1941,23 @@ if st.session_state.selected_tab == "📊 Dashboard":
                         ci = result.get("chart_index")
                         chg = result.get("changes", {})
                         if ci is not None and ci < len(dash["charts"]):
-                            for k, v in chg.items():
-                                dash["charts"][ci][k] = v
+                            chart = dash["charts"][ci]
+                            new_type = chg.get("type", chart.get("type"))
+                            # Regenerate chart data for the new type
+                            try:
+                                new_df, new_spec = regenerate_chart_data(chart.get("df", pd.DataFrame()), chart, new_type)
+                                chart["df"] = new_df
+                                chart["type"] = new_spec["type"]
+                                if new_spec.get("x"): chart["x"] = new_spec["x"]
+                                if new_spec.get("y"): chart["y"] = new_spec["y"]
+                                for k, v in chg.items():
+                                    if k != "type":
+                                        chart[k] = v
+                            except Exception:
+                                for k, v in chg.items():
+                                    chart[k] = v
                             st.session_state.auto_dashboards[selected] = dash
-                            st.session_state.dash_edit_messages.append({"role": "assistant", "content": f"Updated chart {ci}: {chg}"})
+                            st.session_state.dash_edit_messages.append({"role": "assistant", "content": f"Updated chart {ci} to {new_type} with proper data aggregation."})
                     elif action == "add_kpi":
                         kpi = result.get("kpi", {})
                         dash.setdefault("kpis", []).append(kpi)
