@@ -94,7 +94,54 @@ def _ensure_all_tables():
     );
     """)
     conn.commit()
+    _migrate_schema(conn, cursor)
     conn.close()
+
+def _migrate_schema(conn, cursor):
+    """Migrate old schema to new schema."""
+    try:
+        # Check _uploads for user_id column
+        cols = [row[1] for row in cursor.execute("PRAGMA table_info(_uploads)").fetchall()]
+        if "user_id" not in cols:
+            # Recreate _uploads with new schema, preserving existing data
+            cursor.executescript("""
+            CREATE TABLE _uploads_new (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     TEXT NOT NULL DEFAULT 'anonymous',
+                table_name  TEXT NOT NULL,
+                file_name   TEXT NOT NULL,
+                row_count   INTEGER NOT NULL DEFAULT 0,
+                uploaded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, table_name)
+            );
+            INSERT INTO _uploads_new (id, user_id, table_name, file_name, row_count, uploaded_at)
+                SELECT id, 'anonymous', table_name, file_name, row_count, uploaded_at FROM _uploads;
+            DROP TABLE _uploads;
+            ALTER TABLE _uploads_new RENAME TO _uploads;
+            """)
+        # Check _query_log for user_id column
+        cols = [row[1] for row in cursor.execute("PRAGMA table_info(_query_log)").fetchall()]
+        if "user_id" not in cols:
+            cursor.executescript("""
+            CREATE TABLE _query_log_new (
+                id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id     TEXT NOT NULL DEFAULT 'anonymous',
+                query       TEXT NOT NULL,
+                query_type  TEXT NOT NULL DEFAULT 'sql',
+                user_message TEXT DEFAULT '',
+                row_count   INTEGER DEFAULT 0,
+                error       TEXT DEFAULT '',
+                duration_ms INTEGER DEFAULT 0,
+                created_at  TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            );
+            INSERT INTO _query_log_new (id, user_id, query, query_type, user_message, row_count, error, duration_ms, created_at)
+                SELECT id, 'anonymous', query, query_type, user_message, row_count, error, duration_ms, created_at FROM _query_log;
+            DROP TABLE _query_log;
+            ALTER TABLE _query_log_new RENAME TO _query_log;
+            """)
+        conn.commit()
+    except Exception as exc:
+        print(f"Migration note: {exc}")
 
 def create_database():
     _ensure_all_tables()
