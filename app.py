@@ -13,8 +13,8 @@ import streamlit as st
 from sqlalchemy import inspect
 from fpdf import FPDF
 
-from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, edit_dashboard, explain_chart, generate_recommendations, generate_followup_questions, detect_anomalies, build_generation_graph, build_execution_graph
-from setup_db import create_database, DB_PATH, register_upload, register_query_log, get_query_log
+from agent import run_generation, run_execution, generate_sample_questions, generate_executive_summary, auto_generate_dashboard, analyze_data_insights, edit_dashboard, explain_chart, generate_recommendations, detect_anomalies, build_generation_graph, build_execution_graph
+from setup_db import create_database, DB_PATH, register_user, login_user, register_upload, register_query_log, get_query_log, save_dashboard, load_user_dashboards, get_dashboard_by_token, get_user_alerts, create_alert, delete_alert, update_alert_trigger, check_alert_condition, get_user_workspaces, create_workspace, add_workspace_member, get_workspace_members, save_workspace_dashboard, get_workspace_dashboards
 from database import DatabaseConnector
 
 # ── Page config ──
@@ -805,9 +805,55 @@ defaults = {
     "sidebar_open": True,
     "selected_tab": "💬 Chat",
     "dash_edit_messages": [],
+    "user_id": "anonymous",
+    "auth_page": True,
+    "saved_dashboards": [],
 }
 for k, v in defaults.items():
     st.session_state.setdefault(k, v)
+
+# ── Auth UI (shown before main app) ──
+if st.session_state.auth_page and st.session_state.user_id == "anonymous":
+    st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
+    st.markdown('<div style="min-height:80vh;display:flex;align-items:center;justify-content:center;">', unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown(f'''
+        <div style="text-align:center;margin-bottom:1.5rem;">
+            <div style="font-family:Syne,sans-serif;font-size:2.2rem;font-weight:800;
+                background:linear-gradient(135deg,var(--accent),var(--accent2),#e879f9);
+                -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+                margin-bottom:0.3rem;">DataNova</div>
+            <p style="color:var(--text2);font-size:0.95rem;">AI-Powered BI Platform</p>
+        </div>
+        ''', unsafe_allow_html=True)
+        auth_mode = st.radio("", ["Login", "Register"], horizontal=True, label_visibility="collapsed", key="auth_mode")
+        uname = st.text_input("Username", placeholder="Enter username", label_visibility="collapsed", key="auth_user")
+        pwd = st.text_input("Password", type="password", placeholder="Enter password", label_visibility="collapsed", key="auth_pass")
+        if st.button("Continue", type="primary", use_container_width=True, key="auth_btn"):
+            if not uname or not pwd:
+                st.error("Please enter username and password.")
+            elif auth_mode == "Register":
+                ok, msg = register_user(uname, pwd)
+                if ok:
+                    st.success(msg)
+                    st.session_state.user_id = uname
+                    st.session_state.auth_page = False
+                    st.session_state.saved_dashboards = load_user_dashboards(uname)
+                    st.rerun()
+                else:
+                    st.error(msg)
+            else:
+                ok, msg = login_user(uname, pwd)
+                if ok:
+                    st.session_state.user_id = uname
+                    st.session_state.auth_page = False
+                    st.session_state.saved_dashboards = load_user_dashboards(uname)
+                    st.rerun()
+                else:
+                    st.error(msg)
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
 
 # ── Inject theme CSS ──
 st.markdown(get_theme_css(st.session_state.theme), unsafe_allow_html=True)
@@ -944,6 +990,8 @@ def _build_figure(df, ct, xc, yc):
     except Exception:
         pass
     return None
+
+def _apply_chart_layout(fig):
     is_dark = st.session_state.theme == "dark"
     text_color = "#ffffff" if is_dark else "#0f172a"
     text2_color = "#cbd5e1" if is_dark else "#64748b"
@@ -951,7 +999,7 @@ def _build_figure(df, ct, xc, yc):
     chart_bg = "rgba(15,23,42,0.4)" if is_dark else "rgba(248,250,255,0.6)"
     legend_bg = "rgba(30,41,59,0.8)" if is_dark else "rgba(255,255,255,0.9)"
     hover_bg = "rgba(30,41,59,0.95)" if is_dark else "rgba(255,255,255,0.95)"
-    
+
     fig.update_layout(
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor=chart_bg,
@@ -1212,7 +1260,7 @@ with st.sidebar:
     if is_connected:
         st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
         with st.expander("📋 Query Audit Log", expanded=False):
-            log_entries = get_query_log(20)
+            log_entries = get_query_log(20, user_id=st.session_state.user_id)
             if log_entries:
                 for entry in log_entries[:10]:
                     eid, q, qtype, umsg, rc, err, dur, ts = entry
@@ -1222,7 +1270,94 @@ with st.sidebar:
             else:
                 st.markdown('<div class="empty-state" style="padding:0.5rem;"><p style="color:var(--text2);font-size:0.75rem;">No queries yet</p></div>', unsafe_allow_html=True)
 
-    st.markdown('<div style="font-size:0.7rem;color:var(--text2);text-align:center;margin-top:1rem;">⚡ Built with LangGraph · Groq · Streamlit · Plotly · SQLAlchemy</div>', unsafe_allow_html=True)
+    # ── Workspaces (collaboration) ──
+    if st.session_state.user_id != "anonymous":
+        st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
+        with st.expander("👥 Workspaces", expanded=False):
+            ws_key = f"ws_list_{st.session_state.user_id}"
+            if ws_key not in st.session_state:
+                st.session_state[ws_key] = get_user_workspaces(st.session_state.user_id)
+            workspaces = st.session_state[ws_key]
+            if workspaces:
+                sel_ws = st.selectbox("Your workspaces", [""] + [w["name"] for w in workspaces], key="ws_selector")
+                if sel_ws:
+                    ws_data = next(w for w in workspaces if w["name"] == sel_ws)
+                    st.caption(f"Role: {ws_data['role']}  |  Members: {len(get_workspace_members(ws_data['id']))}")
+                    ws_dashboards = get_workspace_dashboards(ws_data["id"])
+                    if ws_dashboards:
+                        for wd in ws_dashboards:
+                            if st.button(f"📊 {wd['name']}", key=f"wsd_{wd['id']}"):
+                                st.session_state.auto_dashboards[wd["name"]] = wd["dashboard"]
+                                st.session_state.selected_dashboard = wd["name"]
+                                st.toast(f"Loaded '{wd['name']}' from workspace")
+                    if st.session_state.selected_dashboard and st.button("📤 Save current dashboard to workspace", key=f"ws_save_{ws_data['id']}"):
+                        dash_name = st.session_state.selected_dashboard
+                        dash_data = st.session_state.auto_dashboards.get(dash_name)
+                        if dash_data:
+                            ok, msg = save_workspace_dashboard(ws_data["id"], dash_name, st.session_state.user_id, dash_data)
+                            st.toast(msg)
+            ws_name = st.text_input("New workspace name", placeholder="My Team", label_visibility="collapsed", key="ws_new")
+            if ws_name and st.button("➕ Create", key="ws_create"):
+                ok, msg = create_workspace(ws_name, st.session_state.user_id)
+                st.toast(msg)
+                if ok:
+                    st.session_state[ws_key] = get_user_workspaces(st.session_state.user_id)
+                    st.rerun()
+            inv_ws = st.text_input("Invite member (workspace name)", placeholder="workspace name", label_visibility="collapsed", key="ws_inv_name")
+            inv_user = st.text_input("Username to invite", placeholder="username", label_visibility="collapsed", key="ws_inv_user")
+            if inv_ws and inv_user and st.button("✉️ Invite", key="ws_invite"):
+                ws_match = [w for w in workspaces if w["name"] == inv_ws and w["role"] == "owner"]
+                if ws_match:
+                    ok, msg = add_workspace_member(ws_match[0]["id"], inv_user)
+                    st.toast(msg)
+                else:
+                    st.toast("Only workspace owners can invite.")
+
+    # ── Alerts ──
+    if st.session_state.user_id != "anonymous" and is_connected and user_tables:
+        st.markdown('<div style="height:0.6rem;"></div>', unsafe_allow_html=True)
+        with st.expander("🔔 Alerts", expanded=False):
+            user_alerts = get_user_alerts(st.session_state.user_id)
+            if user_alerts:
+                for al in user_alerts:
+                    status_icon = "🔔" if al["enabled"] else "🔕"
+                    st.markdown(f'<div style="display:flex;justify-content:space-between;align-items:center;padding:0.2rem 0;"><span>{status_icon} <b>{al["name"]}</b> {al["operator"]} {al["threshold"]}</span><span style="font-size:0.7rem;color:var(--text2);">last: {al["last_triggered"] or "never"}</span></div>', unsafe_allow_html=True)
+                    if st.button("❌", key=f"del_alert_{al['id']}"):
+                        delete_alert(al["id"], st.session_state.user_id)
+                        st.rerun()
+            with st.form("new_alert_form", border=False):
+                st.markdown("**New Alert**")
+                a_name = st.text_input("Name", placeholder="Revenue drop alert", label_visibility="collapsed")
+                a_table = st.selectbox("Table", user_tables, key="alert_table")
+                a_col = st.text_input("Column (leave empty for row count)", placeholder="revenue", label_visibility="collapsed")
+                a_op = st.selectbox("Operator", [">", "<", ">=", "<=", "=="], key="alert_op")
+                a_threshold = st.number_input("Threshold", value=0.0, key="alert_threshold")
+                a_slack = st.text_input("Slack webhook (optional)", placeholder="https://hooks.slack.com/...", label_visibility="collapsed")
+                if st.form_submit_button("➕ Create Alert", type="primary"):
+                    ok, msg = create_alert(st.session_state.user_id, a_name, a_table, st.session_state.selected_dashboard or "", "threshold", a_col, a_op, a_threshold, a_slack)
+                    st.toast(msg)
+                    if ok:
+                        st.rerun()
+
+    # ── User info + logout ──
+    st.markdown(f'<div style="font-size:0.72rem;color:var(--text2);text-align:center;">👤 {st.session_state.user_id}</div>', unsafe_allow_html=True)
+    if st.session_state.user_id != "anonymous":
+        if st.button("🚪 Logout", use_container_width=True, key="logout_btn"):
+            for k in list(st.session_state.keys()):
+                if k in ("theme", "auth_page", "user_id") and k != "user_id":
+                    pass
+                elif k in ("user_id", "auth_page", "saved_dashboards", "messages", "auto_dashboards", "pinned_charts", "selected_dashboard", "cached_questions", "sidebar_open", "selected_tab", "dash_edit_messages", "db_url_input"):
+                    pass
+                else:
+                    del st.session_state[k]
+            st.session_state.user_id = "anonymous"
+            st.session_state.auth_page = True
+            st.session_state.messages = []
+            st.session_state.auto_dashboards = {}
+            st.session_state.pinned_charts = []
+            st.rerun()
+
+    st.markdown('<div style="font-size:0.7rem;color:var(--text2);text-align:center;margin-top:0.5rem;">⚡ Built with LangGraph · Groq · Streamlit · Plotly · SQLAlchemy</div>', unsafe_allow_html=True)
 
 # ── Hero Section (shown when no data loaded) ──
 has_data = bool(st.session_state.auto_dashboards) or bool(st.session_state.pinned_charts)
@@ -1397,7 +1532,8 @@ if st.session_state.selected_tab == "💬 Chat":
                                 user_message=st.session_state.messages[-2]["content"] if len(st.session_state.messages) >= 2 else "",
                                 row_count=len(exec_res.get("final_result", [])) if exec_res.get("final_result") is not None else 0,
                                 error=exec_res.get("error_message", ""),
-                                duration_ms=duration
+                                duration_ms=duration,
+                                user_id=st.session_state.user_id
                             )
                             st.rerun()
                     with btn_col2:
@@ -1507,7 +1643,7 @@ if st.session_state.selected_tab == "📁 Data":
                 tn = "restaurant_tips"
                 dbc = get_cached_connector(db_url_input)
                 dbc.upload_dataframe(df_demo, tn)
-                register_upload(tn, demo_path, len(df_demo))
+                register_upload(tn, demo_path, len(df_demo), user_id=st.session_state.user_id)
                 st.success(f"Demo dataset loaded: {len(df_demo)} rows")
                 with st.spinner("Analyzing data insights..."):
                     try:
@@ -1567,7 +1703,7 @@ if st.session_state.selected_tab == "📁 Data":
                         if st.button("Add to Database", type="primary", width='stretch'):
                             dbc = get_cached_connector(db_url_input)
                             dbc.upload_dataframe(df_preview, tn)
-                            register_upload(tn, url, len(df_preview))
+                            register_upload(tn, url, len(df_preview), user_id=st.session_state.user_id)
                             st.success(f"Table '{tn}' created!")
                             with st.spinner("Analyzing data insights..."):
                                 try:
@@ -1612,7 +1748,7 @@ if st.session_state.selected_tab == "📁 Data":
                 if st.button("Add to Database", type="primary", width='stretch'):
                     dbc = get_cached_connector(db_url_input)
                     dbc.upload_dataframe(df_preview, ftn)
-                    register_upload(ftn, uploaded_file.name, len(df_preview))
+                    register_upload(ftn, uploaded_file.name, len(df_preview), user_id=st.session_state.user_id)
                     st.success(f"Table '{ftn}' created!")
                     with st.spinner("Analyzing data insights..."):
                         try:
@@ -1695,6 +1831,15 @@ if st.session_state.selected_tab == "📁 Data":
 # TAB: DASHBOARD
 # ════════════════════════════════════════════════════
 if st.session_state.selected_tab == "📊 Dashboard":
+    # ── Check for shared dashboard ──
+    shared_token = st.query_params.get("shared", "")
+    if shared_token:
+        shared_dash = get_dashboard_by_token(shared_token)
+        if shared_dash:
+            st.info(f"🔗 Viewing shared dashboard: **{shared_dash['name']}** (by {shared_dash['user_id']})")
+            st.session_state.auto_dashboards["__shared__"] = shared_dash["dashboard"]
+            st.session_state.selected_dashboard = "__shared__"
+
     has_auto = bool(st.session_state.auto_dashboards)
     has_pinned = bool(st.session_state.pinned_charts)
 
@@ -1716,12 +1861,29 @@ if st.session_state.selected_tab == "📊 Dashboard":
         title = dash.get('title', selected)
         st.markdown(f'<div style="display:flex;align-items:center;justify-content:space-between;"><h3 style="margin:0;">📊 {title}</h3><span style="font-size:0.8rem;color:var(--text2);">{len(dash.get("kpis",[]))} KPIs · {len(dash.get("charts",[]))} charts</span></div>', unsafe_allow_html=True)
 
+        table_name = dash.get("table_name", selected)
+
+        # ── Save / Share controls ──
+        save_cols = st.columns([1, 1, 4], gap="small")
+        with save_cols[0]:
+            if st.button("💾 Save Dashboard", use_container_width=True, key=f"save_dash_{selected}"):
+                ok, msg, token = save_dashboard(st.session_state.user_id, selected, table_name, dash)
+                if ok:
+                    st.toast(f"Dashboard saved! Share token: {token}")
+                    st.session_state.saved_dashboards = load_user_dashboards(st.session_state.user_id)
+                else:
+                    st.error(msg)
+        with save_cols[1]:
+            existing = [sd for sd in st.session_state.saved_dashboards if sd["name"] == selected]
+            if existing:
+                share_url = f"{st.request.url.split('?')[0]}?shared={existing[0]['share_token']}"
+                st.markdown(f'<button style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:#fff;border:none;border-radius:14px;padding:0.35rem 1rem;font-weight:600;font-size:0.82rem;cursor:pointer;width:100%;" onclick="navigator.clipboard.writeText(\'{share_url}\')">🔗 Copy Share Link</button>', unsafe_allow_html=True)
+
         if dash.get("error"):
             st.markdown(f'<div class="error-box">⚠ {dash["error"]}</div>', unsafe_allow_html=True)
 
         st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
         db_dash = get_cached_connector(db_url_input)
-        table_name = dash.get("table_name", selected)
 
         # ── Always-visible Filters ──
         filter_cols = []
@@ -1878,6 +2040,73 @@ if st.session_state.selected_tab == "📊 Dashboard":
                 title = a.get("title", "")
                 detail = a.get("detail", "")
                 st.markdown(f'<div style="display:flex;gap:0.5rem;padding:0.3rem 0.5rem;background:var(--card);border:1px solid var(--card-border);border-radius:12px;margin-bottom:0.25rem;"><span style="font-size:1rem;">{sev}</span><div><div style="font-weight:600;font-size:0.78rem;">{title}</div><div style="font-size:0.7rem;color:var(--text2);">{detail}</div></div></div>', unsafe_allow_html=True)
+
+        # ── Alert notifications ──
+        if st.session_state.user_id != "anonymous":
+            user_alerts = get_user_alerts(st.session_state.user_id)
+            triggered_alerts = []
+            for al in user_alerts:
+                if al["enabled"] and (al["table_name"] == table_name or not al["table_name"]):
+                    dbc_al = get_cached_connector(db_url_input)
+                    trig, msg = check_alert_condition(al, dbc_al)
+                    if trig:
+                        triggered_alerts.append(msg)
+                        update_alert_trigger(al["id"])
+                        if al.get("slack_webhook"):
+                            try:
+                                import requests
+                                requests.post(al["slack_webhook"], json={"text": msg}, timeout=5)
+                            except Exception:
+                                pass
+            if triggered_alerts:
+                st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+                for ta in triggered_alerts:
+                    st.warning(ta)
+
+        # ── Custom Chart Builder ──
+        st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
+        with st.expander("🎨 Custom Chart Builder", expanded=False):
+            st.markdown("Build a custom chart and add it to this dashboard")
+            try:
+                dbc_chart = get_cached_connector(db_url_input)
+                full_df_chart = pd.read_sql(f"SELECT * FROM [{table_name}]", dbc_chart.engine)
+            except Exception:
+                full_df_chart = pd.DataFrame()
+            if len(full_df_chart.columns) >= 2:
+                num_cols_chart = [c for c in full_df_chart.columns if pd.api.types.is_numeric_dtype(full_df_chart[c])]
+                cat_cols_chart = [c for c in full_df_chart.columns if full_df_chart[c].dtype in ("object", "category", "string") or full_df_chart[c].nunique() < 20]
+                all_cols_chart = list(full_df_chart.columns)
+                cc1, cc2, cc3 = st.columns(3)
+                with cc1:
+                    chart_type = st.selectbox("Chart type", ["bar", "line", "pie", "scatter", "histogram", "box", "area"], key="cc_type")
+                with cc2:
+                    x_col = st.selectbox("X axis", all_cols_chart, key="cc_x")
+                with cc3:
+                    y_col = st.selectbox("Y axis (optional)", ["(none)"] + all_cols_chart, key="cc_y")
+                if st.button("🔍 Preview", key="cc_preview"):
+                    yc = y_col if y_col != "(none)" else None
+                    fig_cc = _build_figure(full_df_chart, chart_type, x_col, yc)
+                    if fig_cc:
+                        _apply_chart_layout(fig_cc)
+                        st.plotly_chart(fig_cc, use_container_width=True)
+                    else:
+                        st.warning("Could not build chart with those selections.")
+                if st.button("➕ Add to Dashboard", type="primary", key="cc_add"):
+                    yc = y_col if y_col != "(none)" else None
+                    agg_val = full_df_chart[yc].sum() if yc and pd.api.types.is_numeric_dtype(full_df_chart[yc]) else full_df_chart[x_col].count()
+                    new_chart = {
+                        "title": f"{chart_type.title()}: {x_col}" + (f" vs {y_col}" if yc else ""),
+                        "df": full_df_chart,
+                        "type": chart_type, "x": x_col, "y": yc,
+                        "is_main": False,
+                        "sql": f"SELECT * FROM [{table_name}]"
+                    }
+                    dash.setdefault("charts", []).append(new_chart)
+                    st.session_state.auto_dashboards[selected] = dash
+                    st.toast(f"Added '{new_chart['title']}' to dashboard!")
+                    st.rerun()
+            else:
+                st.info("Need at least 2 columns to build a chart.")
 
         # ── Dashboard Edit Chat ──
         st.markdown('<div style="height:0.4rem;"></div>', unsafe_allow_html=True)
